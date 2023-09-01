@@ -1,26 +1,32 @@
 {
 	"name": "todoist-task-to-project-converter",
 	"version": "1.0.0",
-	"main": "main.ts",
 	"author": "ToxyFlog1627",
 	"repository": "https://github.com/ToxyFlog1627/ProjectTaskConverterTodoistApp",
 	"scripts": {
-		"dev": "nodemon src/main.ts"
+		"dev": "nodemon src/main.ts",
+		"build": "rimraf build && tsc",
+		"add-build": "git add build"
 	},
+	"pre-commit": [
+		"build",
+		"add-build"
+	],
 	"dependencies": {
 		"@doist/todoist-api-typescript": "^2.1.2",
 		"@doist/ui-extensions-core": "^4.2.0",
-		"@types/crypto-js": "^4.1.1",
 		"axios": "^1.5.0",
 		"crypto-js": "^4.1.1",
-		"dotenv": "^16.3.1",
-		"express": "^4.18.2",
-		"ts-node": "^10.9.1",
-		"typescript": "^5.2.2"
+		"express": "^4.18.2"
 	},
 	"devDependencies": {
+		"typescript": "^5.2.2",
+		"ts-node": "^10.9.1",
+		"nodemon": "^3.0.1",
+		"@types/crypto-js": "^4.1.1",
 		"@types/express": "^4.17.17",
 		"@types/node": "^20.5.7",
-		"nodemon": "^3.0.1"
+		"pre-commit": "^1.2.2",
+		"rimraf": "^5.0.1"
 	}
 }

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto-js';
-import { VERIFICATION_TOKEN } from '../env';
+
+const VERIFICATION_TOKEN: string = process.env.VERIFICATION_TOKEN!;
 
 export type UnverifiedRequest = Request & { rawBody?: Buffer };
 
