@@ -27,3 +27,7 @@ Feel free to open an issue for any issues, or feature requests
 ## Contribution
 
 Icons for the buttons are very welcome!
+
+## Todoist App Requirments
+
+[Privacy Policy](https://www.freeprivacypolicy.com/live/fcbeb500-da88-4a28-8580-6a1abd65cb71)
