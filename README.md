@@ -1,10 +1,6 @@
-## Development takes time, so please consider donating
-
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/toxyflog1627)
-
 ## Description
 
-This app allows to convert task with subtasks into project and vice-versa in a single click!
+This extension/integration allows to convert task with subtasks into project and vice-versa with a single click!
 
 **Limitations**
 
@@ -19,15 +15,3 @@ Simply follow this [link](https://todoist.com/app/install/23851_62e03c7f59be35d7
 !["preview image"](https://github.com/ToxyFlog1627/ProjectTaskConverterTodoistApp/assets/59206807/36be11c2-83db-49cb-96fa-6e6102074e58)
 
 !["preview image"](https://github.com/ToxyFlog1627/ProjectTaskConverterTodoistApp/assets/59206807/d06a227b-f959-4c89-a619-4914a6dadf51)
-
-## Troubleshooting
-
-Feel free to open an issue for any issues, or feature requests
-
-## Contribution
-
-Icons for the buttons are very welcome!
-
-## Todoist App Requirments
-
-[Privacy Policy](https://www.freeprivacypolicy.com/live/fcbeb500-da88-4a28-8580-6a1abd65cb71)
