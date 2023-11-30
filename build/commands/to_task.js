@@ -105,7 +105,7 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID];
             yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            response.status(200).json((0, utils_1.finishConversion)(true, 'Projects has been successfully converted to task.'));
+            response.status(200).json((0, utils_1.finishConversion)(true, 'Projects is being converted to task.'));
         }
         else
             response.sendStatus(404);

@@ -79,8 +79,8 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
                 const project = yield api.addProject({ name: newProjectName });
                 projectId = project.id;
             }
-            response.status(200).json((0, utils_1.finishConversion)(true, 'Task is being converted to project...'));
             yield convertTaskToProject(api, token, taskId, projectId);
+            response.status(200).json((0, utils_1.finishConversion)(true, 'Task is being converted to project.'));
         }
         else
             response.sendStatus(404);

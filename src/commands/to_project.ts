@@ -90,9 +90,9 @@ const toProject = async (request: RequestWithToken, response: Response) => {
 				projectId = project.id;
 			}
 
-			response.status(200).json(finishConversion(true, 'Task is being converted to project...'));
-
 			await convertTaskToProject(api, token, taskId, projectId);
+
+			response.status(200).json(finishConversion(true, 'Task is being converted to project.'));
 		} else response.sendStatus(404);
 	} catch {
 		response.status(200).json(finishConversion(false, 'Error converting task to project.'));
