@@ -4,7 +4,6 @@ exports.finishConversion = void 0;
 const finishConversion = (success, text) => {
     return {
         bridges: [
-            { bridgeActionType: 'finished' },
             { bridgeActionType: 'request.sync' },
             {
                 bridgeActionType: 'display.notification',
@@ -12,7 +11,8 @@ const finishConversion = (success, text) => {
                     type: success ? 'success' : 'failure',
                     text
                 }
-            }
+            },
+            { bridgeActionType: 'finished' }
         ]
     };
 };
