@@ -45,7 +45,8 @@ const createCard = (projects, defaultProjectName) => {
 };
 const convertTaskToProject = (api, token, taskId, projectId) => __awaiter(void 0, void 0, void 0, function* () {
     const commands = [];
-    const subtasks = yield (0, api_1.getSubtasks)(api, taskId);
+    const tasks = yield api.getTasks();
+    const subtasks = tasks.filter(task => task.parentId === taskId);
     commands.push(...subtasks.map(({ id }) => ({
         type: 'item_move',
         uuid: (0, crypto_1.randomUUID)(),

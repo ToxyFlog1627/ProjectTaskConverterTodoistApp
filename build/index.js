@@ -31,7 +31,7 @@ const verification_1 = require("./middleware/verification");
 const token_1 = require("./middleware/token");
 const to_task_1 = __importDefault(require("./commands/to_task"));
 const to_project_1 = __importDefault(require("./commands/to_project"));
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 const app = (0, express_1.default)();
 app.use((0, express_1.json)({ verify: verification_1.saveRawBody }), verification_1.verificationMiddleware, token_1.tokenExtractor);
 app.post('/to_task', to_task_1.default);

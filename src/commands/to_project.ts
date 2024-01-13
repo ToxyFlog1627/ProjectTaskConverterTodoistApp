@@ -1,4 +1,4 @@
-import { Command, getSubtasks, sync } from './../api';
+import { Command, sync } from './../api';
 import { RequestWithToken } from './../middleware/token';
 import { Response } from 'express';
 import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextInput } from '@doist/ui-extensions-core';
@@ -49,7 +49,8 @@ const createCard = (projects: Project[], defaultProjectName: string): DoistCard 
 
 const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string) => {
 	const commands: Command[] = [];
-	const subtasks = await getSubtasks(api, taskId);
+	const tasks = await api.getTasks();
+	const subtasks = tasks.filter(task => task.parentId === taskId);
 
 	commands.push(
 		...subtasks.map(({ id }) => ({

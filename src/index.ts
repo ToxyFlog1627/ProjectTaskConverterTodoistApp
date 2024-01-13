@@ -4,7 +4,7 @@ import { tokenExtractor } from './middleware/token';
 import toTask from './commands/to_task';
 import toProject from './commands/to_project';
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 
 const app = express();
 

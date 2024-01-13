@@ -4,7 +4,7 @@
 	"author": "ToxyFlog1627",
 	"repository": "https://github.com/ToxyFlog1627/ProjectTaskConverterTodoistApp",
 	"scripts": {
-		"dev": "nodemon src/main.ts",
+		"dev": "nodemon src/index.ts",
 		"build": "rimraf build && tsc",
 		"add-build": "git add build"
 	},
