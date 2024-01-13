@@ -115,7 +115,8 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         else
             response.sendStatus(404);
     }
-    catch (_a) {
+    catch (error) {
+        console.error(error);
         response.status(200).json((0, utils_1.finishConversion)(false, 'Error converting project to task.'));
     }
 });

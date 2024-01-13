@@ -7,7 +7,7 @@ const finishConversion = (success, text) => {
             {
                 bridgeActionType: 'display.notification',
                 notification: {
-                    type: success ? 'success' : 'failure',
+                    type: success ? 'success' : 'error',
                     text
                 }
             },

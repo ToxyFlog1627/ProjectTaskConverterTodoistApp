@@ -4,7 +4,7 @@ export const finishConversion = (success: boolean, text: string) => {
 			{
 				bridgeActionType: 'display.notification',
 				notification: {
-					type: success ? 'success' : 'failure',
+					type: success ? 'success' : 'error',
 					text
 				}
 			},
