@@ -1,16 +1,22 @@
-import { Command, sync } from './../api';
-import { RequestWithToken } from './../middleware/token';
 import { Response } from 'express';
+import { randomUUID } from 'crypto';
 import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextInput } from '@doist/ui-extensions-core';
 import { Project, TodoistApi } from '@doist/todoist-api-typescript';
-import { randomUUID } from 'crypto';
-import { finishConversion } from '../utils';
+import { Command, sync } from './../api';
+import { RequestWithToken } from './../middleware/token';
+import { successResponse, errorResponse } from '../response';
+
+const BATCH_SIZE = 80;
 
 const CREATE_NEW_PROJECT = 'new_project';
+
 const PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const PROJECT_NAME_INPUT_ID = 'Input.ProjectName';
 
-const createCard = (projects: Project[], defaultProjectName: string): DoistCard => {
+const SELECT_PROJECT_ACTION_ID = 'Submit.SelectProject';
+const CREATE_PROJECT_ACTION_ID = 'Submit.CreateProject';
+
+const createProjectSelectionCard = (projects: Project[]): DoistCard => {
 	const card = new DoistCard();
 
 	card.addItem(
@@ -26,6 +32,20 @@ const createCard = (projects: Project[], defaultProjectName: string): DoistCard 
 		})
 	);
 
+	card.addAction(
+		SubmitAction.from({
+			id: SELECT_PROJECT_ACTION_ID,
+			title: 'Next',
+			style: 'positive'
+		})
+	);
+
+	return card;
+};
+
+const createProjectCreationCard = (defaultProjectName: string): DoistCard => {
+	const card = new DoistCard();
+
 	card.addItem(
 		TextInput.from({
 			id: PROJECT_NAME_INPUT_ID,
@@ -38,8 +58,8 @@ const createCard = (projects: Project[], defaultProjectName: string): DoistCard 
 
 	card.addAction(
 		SubmitAction.from({
-			id: 'Action.Submit',
-			title: 'Convert',
+			id: CREATE_PROJECT_ACTION_ID,
+			title: 'Next',
 			style: 'positive'
 		})
 	);
@@ -47,10 +67,12 @@ const createCard = (projects: Project[], defaultProjectName: string): DoistCard 
 	return card;
 };
 
-const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string): Promise<boolean> => {
-	const commands: Command[] = [];
-	const tasks = await api.getTasks();
+const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string) => {
+	const task = await api.getTask(taskId);
+	const tasks = await api.getTasks({ projectId: task.projectId });
 	const subtasks = tasks.filter(task => task.parentId === taskId);
+
+	const commands: Command[] = [];
 
 	commands.push(
 		...subtasks.map(({ id }) => ({
@@ -60,7 +82,6 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
 		}))
 	);
 
-	const task = await api.getTask(taskId);
 	if (!task.description && task.commentCount === 0) {
 		commands.push({
 			type: 'item_delete',
@@ -69,37 +90,49 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
 		});
 	}
 
-	return await sync(commands, token);
+	for (let i = 0; i < commands.length; i += BATCH_SIZE) {
+		const commandBatch = commands.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+		await sync(commandBatch, token);
+	}
+
+	return successResponse('Task is being converted to project.', `https://todoist.com/app/project/${projectId}`, 'Open project');
 };
 
 const toProject = async (request: RequestWithToken, response: Response) => {
 	try {
 		const token = request.token!;
-		const { actionType, params, inputs } = request.body.action;
-		const { contentPlain: taskTitle, sourceId: taskId } = params;
 		const api = new TodoistApi(token);
+
+		const { actionType, actionId, params, inputs } = request.body.action;
+		const { contentPlain: taskTitle, sourceId: taskId } = params;
 
 		if (actionType === 'initial') {
 			const projects = await api.getProjects();
-			const card = createCard(projects, taskTitle);
+			const card = createProjectSelectionCard(projects);
+
 			response.status(200).json({ card });
-		} else if (actionType === 'submit') {
-			let projectId = inputs[PROJECT_ID_INPUT_ID];
-			const newProjectName = inputs[PROJECT_NAME_INPUT_ID];
-			if (projectId === CREATE_NEW_PROJECT && newProjectName) {
-				const project = await api.addProject({ name: newProjectName });
-				projectId = project.id;
+		} else if (actionId === SELECT_PROJECT_ACTION_ID) {
+			const projectId = inputs[PROJECT_ID_INPUT_ID];
+
+			if (projectId === CREATE_NEW_PROJECT) {
+				const card = createProjectCreationCard(taskTitle);
+				response.status(200).json({ card });
+				return;
 			}
 
-			const success = await convertTaskToProject(api, token, taskId, projectId);
-			if (success) {
-				response.status(200).json(finishConversion(true, 'Task is being converted to project.'));
-			} else {
-				response.status(200).json(finishConversion(false, 'Task is too big!'));
-			}
+			const finalResponse = await convertTaskToProject(api, token, taskId, projectId);
+			response.status(200).json(finalResponse);
+		} else if (actionId === CREATE_PROJECT_ACTION_ID) {
+			const projectName = inputs[PROJECT_NAME_INPUT_ID];
+
+			const project = await api.addProject({ name: projectName });
+
+			const finalResponse = await convertTaskToProject(api, token, taskId, project.id);
+			response.status(200).json(finalResponse);
 		} else response.sendStatus(404);
-	} catch {
-		response.status(200).json(finishConversion(false, 'Error converting task to project.'));
+	} catch (error) {
+		console.error(error);
+		response.status(200).json(errorResponse('Unexpected error during conversion.'));
 	}
 };
 

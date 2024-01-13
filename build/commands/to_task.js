@@ -9,13 +9,14 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const api_1 = require("./../api");
+const crypto_1 = require("crypto");
 const ui_extensions_core_1 = require("@doist/ui-extensions-core");
 const todoist_api_typescript_1 = require("@doist/todoist-api-typescript");
-const crypto_1 = require("crypto");
-const utils_1 = require("../utils");
+const api_1 = require("./../api");
+const response_1 = require("../response");
 const NEW_TASK_PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const GROUP_BY_SECTIONS_INPUT_ID = 'Input.GroupBySections';
+const SELECT_PROJECT_EVENT_ID = 'Submit.SelectProject';
 const createCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
     const inboxProject = projects.filter(project => project.isInboxProject)[0].id;
@@ -88,7 +89,7 @@ const convertProjectToTask = (api, token, groupBySections, projectId, newTaskPro
             args: { id: task.id, parent_id: 'root' }
         })));
     }
-    return yield (0, api_1.sync)(commands, token);
+    yield (0, api_1.sync)(commands, token);
 });
 const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -104,20 +105,15 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         else if (actionType === 'submit') {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === 'true';
-            const success = yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            if (success) {
-                response.status(200).json((0, utils_1.finishConversion)(true, 'Projects is being converted to task.'));
-            }
-            else {
-                response.status(200).json((0, utils_1.finishConversion)(false, 'Project is too big!'));
-            }
+            yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
+            response.status(200).json((0, response_1.successResponse)('Projects is being converted to task.', '', ''));
         }
         else
             response.sendStatus(404);
     }
     catch (error) {
         console.error(error);
-        response.status(200).json((0, utils_1.finishConversion)(false, 'Error converting project to task.'));
+        response.status(200).json((0, response_1.errorResponse)('Error converting project to task.'));
     }
 });
 exports.default = toTask;

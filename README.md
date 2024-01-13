@@ -5,6 +5,7 @@ This extension/integration allows to convert task with subtasks into project and
 **Limitations**
 
 -   Project comments aren't moved
+-   Completed tasks aren't moved
 
 ## Installation
 

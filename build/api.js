@@ -14,13 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sync = void 0;
 const axios_1 = __importDefault(require("axios"));
-const MAX_SYNC_SIZE = 100;
 const MAX_SYNC_TIMEOUT = 15000;
-const sync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
-    if (commands.length >= MAX_SYNC_SIZE)
-        return false;
-    yield axios_1.default.post('https://api.todoist.com/sync/v9/sync', { commands }, { timeout: MAX_SYNC_TIMEOUT, headers: { Authorization: `Bearer ${token}` } });
-    return true;
-});
+const sync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () { return axios_1.default.post('https://api.todoist.com/sync/v9/sync', { commands }, { timeout: MAX_SYNC_TIMEOUT, headers: { Authorization: `Bearer ${token}` } }); });
 exports.sync = sync;
 //# sourceMappingURL=api.js.map
