@@ -45,7 +45,7 @@ const createCard = (projects: Project[]): DoistCard => {
 	return card;
 };
 
-const convertProjectToTask = async (api: TodoistApi, token: string, groupBySections: boolean, projectId: string, newTaskProjectId: string) => {
+const convertProjectToTask = async (api: TodoistApi, token: string, groupBySections: boolean, projectId: string, newTaskProjectId: string): Promise<boolean> => {
 	const commands: Command[] = [];
 	const project = await api.getProject(projectId);
 
@@ -105,7 +105,7 @@ const convertProjectToTask = async (api: TodoistApi, token: string, groupBySecti
 		);
 	}
 
-	await sync(commands, token);
+	return await sync(commands, token);
 };
 
 const toTask = async (request: RequestWithToken, response: Response) => {
@@ -122,8 +122,13 @@ const toTask = async (request: RequestWithToken, response: Response) => {
 		} else if (actionType === 'submit') {
 			const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
 			const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === 'true';
-			await convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-			response.status(200).json(finishConversion(true, 'Projects is being converted to task.'));
+
+			const success = await convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
+			if (success) {
+				response.status(200).json(finishConversion(true, 'Projects is being converted to task.'));
+			} else {
+				response.status(200).json(finishConversion(false, 'Project is too big!'));
+			}
 		} else response.sendStatus(404);
 	} catch {
 		response.status(200).json(finishConversion(false, 'Error converting project to task.'));

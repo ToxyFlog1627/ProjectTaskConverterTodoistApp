@@ -47,7 +47,7 @@ const createCard = (projects: Project[], defaultProjectName: string): DoistCard 
 	return card;
 };
 
-const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string) => {
+const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string): Promise<boolean> => {
 	const commands: Command[] = [];
 	const tasks = await api.getTasks();
 	const subtasks = tasks.filter(task => task.parentId === taskId);
@@ -69,7 +69,7 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
 		});
 	}
 
-	await sync(commands, token);
+	return await sync(commands, token);
 };
 
 const toProject = async (request: RequestWithToken, response: Response) => {
@@ -91,9 +91,12 @@ const toProject = async (request: RequestWithToken, response: Response) => {
 				projectId = project.id;
 			}
 
-			await convertTaskToProject(api, token, taskId, projectId);
-
-			response.status(200).json(finishConversion(true, 'Task is being converted to project.'));
+			const success = await convertTaskToProject(api, token, taskId, projectId);
+			if (success) {
+				response.status(200).json(finishConversion(true, 'Task is being converted to project.'));
+			} else {
+				response.status(200).json(finishConversion(false, 'Task is too big!'));
+			}
 		} else response.sendStatus(404);
 	} catch {
 		response.status(200).json(finishConversion(false, 'Error converting task to project.'));

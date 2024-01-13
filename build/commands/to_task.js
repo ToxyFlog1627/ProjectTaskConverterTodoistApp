@@ -88,7 +88,7 @@ const convertProjectToTask = (api, token, groupBySections, projectId, newTaskPro
             args: { id: task.id, parent_id: 'root' }
         })));
     }
-    yield (0, api_1.sync)(commands, token);
+    return yield (0, api_1.sync)(commands, token);
 });
 const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -104,8 +104,13 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         else if (actionType === 'submit') {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === 'true';
-            yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            response.status(200).json((0, utils_1.finishConversion)(true, 'Projects is being converted to task.'));
+            const success = yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
+            if (success) {
+                response.status(200).json((0, utils_1.finishConversion)(true, 'Projects is being converted to task.'));
+            }
+            else {
+                response.status(200).json((0, utils_1.finishConversion)(false, 'Project is too big!'));
+            }
         }
         else
             response.sendStatus(404);

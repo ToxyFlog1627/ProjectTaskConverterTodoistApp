@@ -60,7 +60,7 @@ const convertTaskToProject = (api, token, taskId, projectId) => __awaiter(void 0
             args: { id: taskId }
         });
     }
-    yield (0, api_1.sync)(commands, token);
+    return yield (0, api_1.sync)(commands, token);
 });
 const toProject = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -80,8 +80,13 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
                 const project = yield api.addProject({ name: newProjectName });
                 projectId = project.id;
             }
-            yield convertTaskToProject(api, token, taskId, projectId);
-            response.status(200).json((0, utils_1.finishConversion)(true, 'Task is being converted to project.'));
+            const success = yield convertTaskToProject(api, token, taskId, projectId);
+            if (success) {
+                response.status(200).json((0, utils_1.finishConversion)(true, 'Task is being converted to project.'));
+            }
+            else {
+                response.status(200).json((0, utils_1.finishConversion)(false, 'Task is too big!'));
+            }
         }
         else
             response.sendStatus(404);
