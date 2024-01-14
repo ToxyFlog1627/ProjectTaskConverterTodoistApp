@@ -6,7 +6,7 @@ import { Command, sync } from './../api';
 import { RequestWithToken } from './../middleware/token';
 import { successResponse, errorResponse } from '../response';
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 20;
 
 const CREATE_NEW_PROJECT = 'new_project';
 

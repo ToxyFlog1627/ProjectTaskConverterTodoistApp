@@ -6,7 +6,7 @@ import { Command, sync } from './../api';
 import { RequestWithToken } from './../middleware/token';
 import { successResponse, errorResponse } from '../response';
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 20;
 
 const NEW_TASK_PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const GROUP_BY_SECTIONS_INPUT_ID = 'Input.GroupBySections';
