@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { randomUUID } from 'crypto';
-import { Choice, ChoiceSetInput, DoistCard, SubmitAction, ToggleInput } from '@doist/ui-extensions-core';
+import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextBlock, ToggleInput } from '@doist/ui-extensions-core';
 import { Project, TodoistApi } from '@doist/todoist-api-typescript';
 import { Command, sync } from './../api';
 import { RequestWithToken } from './../middleware/token';
@@ -12,8 +12,9 @@ const NEW_TASK_PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const GROUP_BY_SECTIONS_INPUT_ID = 'Input.GroupBySections';
 
 const CONVERT_ACTION_ID = 'Submit.Convert';
+const CLOSE_ACTION_ID = 'Submit.Close';
 
-const createCard = (projects: Project[]): DoistCard => {
+const createInputCard = (projects: Project[]): DoistCard => {
 	const card = new DoistCard();
 
 	const inboxProject = projects.filter(project => project.isInboxProject)[0].id;
@@ -48,6 +49,51 @@ const createCard = (projects: Project[]): DoistCard => {
 	);
 
 	return card;
+};
+
+const createInfoCard = (): DoistCard => {
+	const card = new DoistCard();
+
+	card.addItem(
+		TextBlock.from({
+			text: `
+The project will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.`,
+			wrap: true,
+			size: 'large'
+		})
+	);
+
+	card.addAction(
+		SubmitAction.from({
+			id: CLOSE_ACTION_ID,
+			title: 'Close',
+			style: 'positive'
+		})
+	);
+
+	return card;
+};
+
+const incrementalSync = async (commands: Command[], token: string) => {
+	let tempIdMap: { [key: string]: string } = {};
+	for (let i = 0; i < commands.length; i += BATCH_SIZE) {
+		const commandBatch = commands.slice(i, i + BATCH_SIZE);
+		commandBatch.forEach(command => {
+			const parentId = command.args.parent_id;
+			if (!parentId) return;
+
+			const mappedId = tempIdMap[command.args.parent_id];
+			if (!mappedId) return;
+
+			command.args.parent_id = mappedId;
+		});
+
+		const response = await sync(commandBatch, token);
+		if (!response) return;
+		tempIdMap = { ...tempIdMap, ...response.data.temp_id_mapping };
+	}
 };
 
 const convertProjectToTask = async (api: TodoistApi, token: string, groupBySections: boolean, projectId: string, newTaskProjectId: string) => {
@@ -111,24 +157,7 @@ const convertProjectToTask = async (api: TodoistApi, token: string, groupBySecti
 		);
 	}
 
-	let tempIdMap: { [key: string]: string } = {};
-	for (let i = 0; i < commands.length; i += BATCH_SIZE) {
-		const commandBatch = commands.slice(i, i + BATCH_SIZE);
-		commandBatch.forEach(command => {
-			const parentId = command.args.parent_id;
-			if (!parentId) return;
-
-			const mappedId = tempIdMap[command.args.parent_id];
-			if (!mappedId) return;
-
-			command.args.parent_id = mappedId;
-		});
-
-		const response = await sync(commandBatch, token);
-		tempIdMap = { ...tempIdMap, ...response.data.temp_id_mapping };
-	}
-
-	return successResponse('The project is being converted to a task.', `https://todoist.com/app/task/${tempIdMap['root']}`, 'Open task');
+	incrementalSync(commands, token);
 };
 
 const toTask = async (request: RequestWithToken, response: Response) => {
@@ -141,16 +170,19 @@ const toTask = async (request: RequestWithToken, response: Response) => {
 
 		if (actionType === 'initial') {
 			const projects = await api.getProjects();
-			const card = createCard(projects);
+			const card = createInputCard(projects);
 
 			response.status(200).json({ card });
 		} else if (actionId === CONVERT_ACTION_ID) {
 			const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
 			const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === 'true';
 
-			const finalResponse = await convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-			response.status(200).json(finalResponse);
-		} else response.sendStatus(404);
+			await convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
+
+			const card = createInfoCard();
+			response.status(200).json({ card });
+		} else if (actionId === CLOSE_ACTION_ID) response.status(200).json(successResponse());
+		else response.sendStatus(404);
 	} catch (error) {
 		console.error(error);
 		response.status(200).json(errorResponse('Unexpected error during conversion.'));

@@ -20,6 +20,7 @@ const PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const PROJECT_NAME_INPUT_ID = 'Input.ProjectName';
 const SELECT_PROJECT_ACTION_ID = 'Submit.SelectProject';
 const CREATE_PROJECT_ACTION_ID = 'Submit.CreateProject';
+const CLOSE_ACTION_ID = 'Submit.Close';
 const createProjectSelectionCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
     const choices = [ui_extensions_core_1.Choice.from({ title: 'New project', value: CREATE_NEW_PROJECT }), ...projects.map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id }))];
@@ -56,6 +57,31 @@ const createProjectCreationCard = (defaultProjectName) => {
     }));
     return card;
 };
+const createInfoCard = () => {
+    const card = new ui_extensions_core_1.DoistCard();
+    card.addItem(ui_extensions_core_1.TextBlock.from({
+        text: `
+The task will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.`,
+        wrap: true,
+        size: 'large'
+    }));
+    card.addAction(ui_extensions_core_1.SubmitAction.from({
+        id: CLOSE_ACTION_ID,
+        title: 'Close',
+        style: 'positive'
+    }));
+    return card;
+};
+const incrementalSync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
+    for (let i = 0; i < commands.length; i += BATCH_SIZE) {
+        const commandBatch = commands.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+        const response = yield (0, api_1.sync)(commandBatch, token);
+        if (!response)
+            return;
+    }
+});
 const convertTaskToProject = (api, token, taskId, projectId) => __awaiter(void 0, void 0, void 0, function* () {
     const task = yield api.getTask(taskId);
     const tasks = yield api.getTasks({ projectId: task.projectId });
@@ -73,11 +99,7 @@ const convertTaskToProject = (api, token, taskId, projectId) => __awaiter(void 0
             args: { id: taskId }
         });
     }
-    for (let i = 0; i < commands.length; i += BATCH_SIZE) {
-        const commandBatch = commands.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
-        yield (0, api_1.sync)(commandBatch, token);
-    }
-    return (0, response_1.successResponse)('The task is being converted to a project.', `https://todoist.com/app/project/${projectId}`, 'Open project');
+    incrementalSync(commands, token);
 });
 const toProject = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
     try {
@@ -97,15 +119,19 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
                 response.status(200).json({ card });
                 return;
             }
-            const finalResponse = yield convertTaskToProject(api, token, taskId, projectId);
-            response.status(200).json(finalResponse);
+            yield convertTaskToProject(api, token, taskId, projectId);
+            const card = createInfoCard();
+            response.status(200).json({ card });
         }
         else if (actionId === CREATE_PROJECT_ACTION_ID) {
             const projectName = inputs[PROJECT_NAME_INPUT_ID];
             const project = yield api.addProject({ name: projectName });
-            const finalResponse = yield convertTaskToProject(api, token, taskId, project.id);
-            response.status(200).json(finalResponse);
+            yield convertTaskToProject(api, token, taskId, project.id);
+            const card = createInfoCard();
+            response.status(200).json({ card });
         }
+        else if (actionId === CLOSE_ACTION_ID)
+            response.status(200).json((0, response_1.successResponse)());
         else
             response.sendStatus(404);
     }

@@ -7,7 +7,11 @@ export type Command = {
 	args: any;
 };
 
-const MAX_SYNC_TIMEOUT = 15000;
-
-export const sync = async (commands: Command[], token: string) =>
-	axios.post('https://api.todoist.com/sync/v9/sync', { commands }, { timeout: MAX_SYNC_TIMEOUT, headers: { Authorization: `Bearer ${token}` } });
+export const sync = async (commands: Command[], token: string) => {
+	try {
+		return axios.post('https://api.todoist.com/sync/v9/sync', { commands }, { timeout: 60000, headers: { Authorization: `Bearer ${token}` } });
+	} catch (error) {
+		console.error(error);
+		return null;
+	}
+};
