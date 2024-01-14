@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { randomUUID } from 'crypto';
-import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextBlock, TextInput } from '@doist/ui-extensions-core';
+import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextBlock, TextInput, ToggleInput } from '@doist/ui-extensions-core';
 import { Project, TodoistApi } from '@doist/todoist-api-typescript';
 import { Command, sync } from './../api';
 import { RequestWithToken } from './../middleware/token';
@@ -12,6 +12,7 @@ const CREATE_NEW_PROJECT = 'new_project';
 
 const PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const PROJECT_NAME_INPUT_ID = 'Input.ProjectName';
+const CREATE_REDIRECT_INPUT_ID = 'Input.CreateRedirect';
 
 const SELECT_PROJECT_ACTION_ID = 'Submit.SelectProject';
 const CREATE_PROJECT_ACTION_ID = 'Submit.CreateProject';
@@ -34,6 +35,14 @@ const createProjectSelectionCard = (projects: Project[]): DoistCard => {
 		})
 	);
 
+	card.addItem(
+		ToggleInput.from({
+			id: CREATE_REDIRECT_INPUT_ID,
+			title: 'Replace with link to the project',
+			defaultValue: 'true'
+		})
+	);
+
 	card.addAction(
 		SubmitAction.from({
 			id: SELECT_PROJECT_ACTION_ID,
@@ -45,7 +54,7 @@ const createProjectSelectionCard = (projects: Project[]): DoistCard => {
 	return card;
 };
 
-const createProjectCreationCard = (defaultProjectName: string): DoistCard => {
+const createProjectCreationCard = (defaultProjectName: string, createRedirect: boolean): DoistCard => {
 	const card = new DoistCard();
 
 	card.addItem(
@@ -62,7 +71,8 @@ const createProjectCreationCard = (defaultProjectName: string): DoistCard => {
 		SubmitAction.from({
 			id: CREATE_PROJECT_ACTION_ID,
 			title: 'Next',
-			style: 'positive'
+			style: 'positive',
+			data: { createRedirect: String(createRedirect) }
 		})
 	);
 
@@ -96,18 +106,26 @@ To see progress either perform a sync, or wait until it will be done automatical
 
 const incrementalSync = async (commands: Command[], token: string) => {
 	for (let i = 0; i < commands.length; i += BATCH_SIZE) {
-		const commandBatch = commands.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+		const commandBatch = commands.slice(i, i + BATCH_SIZE);
 		const response = await sync(commandBatch, token);
 		if (!response) return;
 	}
 };
 
-const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string) => {
+const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string, createRedirect: boolean) => {
 	const task = await api.getTask(taskId);
 	const tasks = await api.getTasks({ projectId: task.projectId });
 	const subtasks = tasks.filter(task => task.parentId === taskId);
 
 	const commands: Command[] = [];
+
+	if (createRedirect) {
+		commands.push({
+			type: 'item_update',
+			uuid: randomUUID(),
+			args: { id: taskId, content: `[[Converted to Project](https://app.todoist.com/app/project/${projectId})] ${task.content}` }
+		});
+	}
 
 	commands.push(
 		...subtasks.map(({ id }) => ({
@@ -117,14 +135,6 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
 		}))
 	);
 
-	if (!task.description && task.commentCount === 0) {
-		commands.push({
-			type: 'item_delete',
-			uuid: randomUUID(),
-			args: { id: taskId }
-		});
-	}
-
 	incrementalSync(commands, token);
 };
 
@@ -133,7 +143,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
 		const token = request.token!;
 		const api = new TodoistApi(token);
 
-		const { actionType, actionId, params, inputs } = request.body.action;
+		const { actionType, actionId, params, inputs, data } = request.body.action;
 		const { contentPlain: taskTitle, sourceId: taskId } = params;
 
 		if (actionType === 'initial') {
@@ -142,23 +152,25 @@ const toProject = async (request: RequestWithToken, response: Response) => {
 
 			response.status(200).json({ card });
 		} else if (actionId === SELECT_PROJECT_ACTION_ID) {
+			const createRedirect = inputs[CREATE_REDIRECT_INPUT_ID] === 'true';
 			const projectId = inputs[PROJECT_ID_INPUT_ID];
 
 			if (projectId === CREATE_NEW_PROJECT) {
-				const card = createProjectCreationCard(taskTitle);
+				const card = createProjectCreationCard(taskTitle, createRedirect);
 				response.status(200).json({ card });
 				return;
 			}
 
-			await convertTaskToProject(api, token, taskId, projectId);
+			await convertTaskToProject(api, token, taskId, projectId, createRedirect);
 
 			const card = createInfoCard();
 			response.status(200).json({ card });
 		} else if (actionId === CREATE_PROJECT_ACTION_ID) {
+			const createRedirect = data['createRedirect'] === 'true';
 			const projectName = inputs[PROJECT_NAME_INPUT_ID];
 			const project = await api.addProject({ name: projectName });
 
-			await convertTaskToProject(api, token, taskId, project.id);
+			await convertTaskToProject(api, token, taskId, project.id, createRedirect);
 
 			const card = createInfoCard();
 			response.status(200).json({ card });
