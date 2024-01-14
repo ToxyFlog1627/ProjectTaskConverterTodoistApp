@@ -6,7 +6,7 @@ import { Command, sync } from './../api';
 import { RequestWithToken } from './../middleware/token';
 import { successResponse, errorResponse } from '../response';
 
-const BATCH_SIZE = 80;
+const BATCH_SIZE = 50;
 
 const CREATE_NEW_PROJECT = 'new_project';
 
@@ -19,6 +19,7 @@ const CREATE_PROJECT_ACTION_ID = 'Submit.CreateProject';
 const createProjectSelectionCard = (projects: Project[]): DoistCard => {
 	const card = new DoistCard();
 
+	const choices = [Choice.from({ title: 'New project', value: CREATE_NEW_PROJECT }), ...projects.map(({ id, name }) => Choice.from({ title: name, value: id }))];
 	card.addItem(
 		ChoiceSetInput.from({
 			id: PROJECT_ID_INPUT_ID,
@@ -26,7 +27,7 @@ const createProjectSelectionCard = (projects: Project[]): DoistCard => {
 			isRequired: true,
 			errorMessage: 'Invalid project.',
 			defaultValue: CREATE_NEW_PROJECT,
-			choices: [Choice.from({ title: 'New project', value: CREATE_NEW_PROJECT }), ...projects.map(({ id, name }) => Choice.from({ title: name, value: id }))],
+			choices,
 			isSearchable: false,
 			isMultiSelect: false
 		})
@@ -95,7 +96,7 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
 		await sync(commandBatch, token);
 	}
 
-	return successResponse('Task is being converted to project.', `https://todoist.com/app/project/${projectId}`, 'Open project');
+	return successResponse('The task is being converted to a project.', `https://todoist.com/app/project/${projectId}`, 'Open project');
 };
 
 const toProject = async (request: RequestWithToken, response: Response) => {

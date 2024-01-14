@@ -14,7 +14,7 @@ const ui_extensions_core_1 = require("@doist/ui-extensions-core");
 const todoist_api_typescript_1 = require("@doist/todoist-api-typescript");
 const api_1 = require("./../api");
 const response_1 = require("../response");
-const BATCH_SIZE = 80;
+const BATCH_SIZE = 50;
 const CREATE_NEW_PROJECT = 'new_project';
 const PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const PROJECT_NAME_INPUT_ID = 'Input.ProjectName';
@@ -22,13 +22,14 @@ const SELECT_PROJECT_ACTION_ID = 'Submit.SelectProject';
 const CREATE_PROJECT_ACTION_ID = 'Submit.CreateProject';
 const createProjectSelectionCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
+    const choices = [ui_extensions_core_1.Choice.from({ title: 'New project', value: CREATE_NEW_PROJECT }), ...projects.map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id }))];
     card.addItem(ui_extensions_core_1.ChoiceSetInput.from({
         id: PROJECT_ID_INPUT_ID,
         label: 'Project',
         isRequired: true,
         errorMessage: 'Invalid project.',
         defaultValue: CREATE_NEW_PROJECT,
-        choices: [ui_extensions_core_1.Choice.from({ title: 'New project', value: CREATE_NEW_PROJECT }), ...projects.map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id }))],
+        choices,
         isSearchable: false,
         isMultiSelect: false
     }));
@@ -76,7 +77,7 @@ const convertTaskToProject = (api, token, taskId, projectId) => __awaiter(void 0
         const commandBatch = commands.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
         yield (0, api_1.sync)(commandBatch, token);
     }
-    return (0, response_1.successResponse)('Task is being converted to project.', `https://todoist.com/app/project/${projectId}`, 'Open project');
+    return (0, response_1.successResponse)('The task is being converted to a project.', `https://todoist.com/app/project/${projectId}`, 'Open project');
 });
 const toProject = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
     try {

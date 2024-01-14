@@ -14,19 +14,21 @@ const ui_extensions_core_1 = require("@doist/ui-extensions-core");
 const todoist_api_typescript_1 = require("@doist/todoist-api-typescript");
 const api_1 = require("./../api");
 const response_1 = require("../response");
+const BATCH_SIZE = 50;
 const NEW_TASK_PROJECT_ID_INPUT_ID = 'Input.ProjectId';
 const GROUP_BY_SECTIONS_INPUT_ID = 'Input.GroupBySections';
-const SELECT_PROJECT_EVENT_ID = 'Submit.SelectProject';
+const CONVERT_ACTION_ID = 'Submit.Convert';
 const createCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
     const inboxProject = projects.filter(project => project.isInboxProject)[0].id;
+    const choices = [...projects.map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id }))];
     card.addItem(ui_extensions_core_1.ChoiceSetInput.from({
         id: NEW_TASK_PROJECT_ID_INPUT_ID,
         label: 'Where to create task',
         isRequired: true,
         errorMessage: 'Invalid project.',
         defaultValue: inboxProject,
-        choices: [...projects.map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id }))],
+        choices,
         isSearchable: false,
         isMultiSelect: false
     }));
@@ -36,8 +38,8 @@ const createCard = (projects) => {
         defaultValue: 'true'
     }));
     card.addAction(ui_extensions_core_1.SubmitAction.from({
-        id: 'Action.Submit',
-        title: 'Convert',
+        id: CONVERT_ACTION_ID,
+        title: 'Next',
         style: 'positive'
     }));
     return card;
@@ -55,8 +57,9 @@ const convertProjectToTask = (api, token, groupBySections, projectId, newTaskPro
         }
     });
     const tasks = yield api.getTasks({ projectId });
+    const topLevelTasks = tasks.filter(task => !task.parentId);
     if (groupBySections) {
-        const tasksWithoutSection = tasks.filter(task => !task.sectionId);
+        const tasksWithoutSection = topLevelTasks.filter(task => !task.sectionId);
         commands.push(...tasksWithoutSection.map(task => ({
             type: 'item_move',
             uuid: (0, crypto_1.randomUUID)(),
@@ -83,37 +86,52 @@ const convertProjectToTask = (api, token, groupBySections, projectId, newTaskPro
         })));
     }
     else {
-        commands.push(...tasks.map(task => ({
+        commands.push(...topLevelTasks.map(task => ({
             type: 'item_move',
             uuid: (0, crypto_1.randomUUID)(),
             args: { id: task.id, parent_id: 'root' }
         })));
     }
-    yield (0, api_1.sync)(commands, token);
+    let tempIdMap = {};
+    for (let i = 0; i < commands.length; i += BATCH_SIZE) {
+        const commandBatch = commands.slice(i, i + BATCH_SIZE);
+        commandBatch.forEach(command => {
+            const parentId = command.args.parent_id;
+            if (!parentId)
+                return;
+            const mappedId = tempIdMap[command.args.parent_id];
+            if (!mappedId)
+                return;
+            command.args.parent_id = mappedId;
+        });
+        const response = yield (0, api_1.sync)(commandBatch, token);
+        tempIdMap = Object.assign(Object.assign({}, tempIdMap), response.data.temp_id_mapping);
+    }
+    return (0, response_1.successResponse)('The project is being converted to a task.', `https://todoist.com/app/task/${tempIdMap['root']}`, 'Open task');
 });
 const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const token = request.token;
-        const { actionType, params, inputs } = request.body.action;
-        const { sourceId: projectId } = params;
         const api = new todoist_api_typescript_1.TodoistApi(token);
+        const { actionType, actionId, params, inputs } = request.body.action;
+        const { sourceId: projectId } = params;
         if (actionType === 'initial') {
             const projects = yield api.getProjects();
             const card = createCard(projects);
             response.status(200).json({ card });
         }
-        else if (actionType === 'submit') {
+        else if (actionId === CONVERT_ACTION_ID) {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === 'true';
-            yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            response.status(200).json((0, response_1.successResponse)('Projects is being converted to task.', '', ''));
+            const finalResponse = yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
+            response.status(200).json(finalResponse);
         }
         else
             response.sendStatus(404);
     }
     catch (error) {
         console.error(error);
-        response.status(200).json((0, response_1.errorResponse)('Error converting project to task.'));
+        response.status(200).json((0, response_1.errorResponse)('Unexpected error during conversion.'));
     }
 });
 exports.default = toTask;
