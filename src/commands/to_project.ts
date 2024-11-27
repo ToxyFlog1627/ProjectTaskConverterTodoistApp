@@ -113,9 +113,10 @@ const incrementalSync = async (commands: Command[], token: string) => {
 };
 
 const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string, createRedirect: boolean) => {
+	// taskID seems to be kind of "internal", so we have to get "external" id from the task  ¯\_(ツ)_/¯
 	const task = await api.getTask(taskId);
 	const tasks = await api.getTasks({ projectId: task.projectId });
-	const subtasks = tasks.filter(task => task.parentId === taskId);
+	const subtasks = tasks.filter(current => current.parentId === task.id);
 
 	const commands: Command[] = [];
 
@@ -123,7 +124,10 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
 		commands.push({
 			type: 'item_update',
 			uuid: randomUUID(),
-			args: { id: taskId, content: `[[Converted to Project](https://app.todoist.com/app/project/${projectId})] ${task.content}` }
+			args: {
+				id: task.id,
+				content: `[[Converted to Project](https://app.todoist.com/app/project/${projectId})] ${task.content}`
+			}
 		});
 	}
 

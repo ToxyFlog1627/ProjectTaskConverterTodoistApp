@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto-js';
+import "dotenv/config";
 
 const VERIFICATION_TOKEN: string = process.env.VERIFICATION_TOKEN!;
 
