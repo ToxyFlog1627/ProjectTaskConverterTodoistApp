@@ -87,9 +87,7 @@ To see progress either perform a sync, or wait until it will be done automatical
 const incrementalSync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
     for (let i = 0; i < commands.length; i += BATCH_SIZE) {
         const commandBatch = commands.slice(i, i + BATCH_SIZE);
-        console.log("Syncing:", commandBatch);
         const response = yield (0, api_1.sync)(commandBatch, token);
-        console.log("Success!");
         if (!response)
             return;
     }
@@ -98,22 +96,22 @@ const convertTaskToProject = (api, token, taskId, projectId, createRedirect) => 
     // taskID seems to be kind of "internal", so we have to get "external" id from the task  ¯\_(ツ)_/¯
     const task = yield api.getTask(taskId);
     const tasks = yield api.getTasks({ projectId: task.projectId });
-    const subtasks = tasks.filter(current => current.parentId === task.id);
+    const subtasks = tasks.filter((current) => current.parentId === task.id);
     const commands = [];
     if (createRedirect) {
         commands.push({
-            type: 'item_update',
+            type: "item_update",
             uuid: (0, crypto_1.randomUUID)(),
             args: {
                 id: task.id,
-                content: `[[Converted to Project](https://app.todoist.com/app/project/${projectId})] ${task.content}`
-            }
+                content: `[[Converted to Project](https://app.todoist.com/app/project/${projectId})] ${task.content}`,
+            },
         });
     }
     commands.push(...subtasks.map(({ id }) => ({
-        type: 'item_move',
+        type: "item_move",
         uuid: (0, crypto_1.randomUUID)(),
-        args: { id, project_id: projectId }
+        args: { id, project_id: projectId },
     })));
     incrementalSync(commands, token);
 });
@@ -148,16 +146,16 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
             const card = createInfoCard();
             response.status(200).json({ card });
         }
-        else if (actionId === CLOSE_ACTION_ID)
+        else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());
-        else
+        }
+        else {
             response.sendStatus(404);
+        }
     }
     catch (error) {
         console.error(error);
-        response
-            .status(200)
-            .json((0, response_1.errorResponse)("Unexpected error during conversion."));
+        response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
 });
 exports.default = toProject;
