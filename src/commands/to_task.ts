@@ -176,17 +176,15 @@ const toTask = async (request: RequestWithToken, response: Response) => {
 
         if (actionType === "initial") {
             const projects = await api.getProjects();
-            const card = createInputCard(projects);
 
-            response.status(200).json({ card });
+            response.status(200).json({ card: createInputCard(projects) });
         } else if (actionId === CONVERT_ACTION_ID) {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === "true";
 
             await convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
 
-            const card = createInfoCard();
-            response.status(200).json({ card });
+            response.status(200).json({ card: createInfoCard() });
         } else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json(successResponse());
         } else {

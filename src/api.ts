@@ -9,13 +9,13 @@ export type Command = {
 
 export const sync = async (commands: Command[], token: string) => {
     try {
-        return axios.post(
+        return await axios.post(
             "https://api.todoist.com/sync/v9/sync",
             { commands },
-            { timeout: 60000, headers: { Authorization: `Bearer ${token}` } }
+            { timeout: 60 * 1000, headers: { Authorization: `Bearer ${token}` } }
         );
     } catch (error) {
-        console.error(error);
+        console.error("Error while syncing: ", error);
         return null;
     }
 };
