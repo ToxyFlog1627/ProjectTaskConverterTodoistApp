@@ -14,7 +14,11 @@ const ui_extensions_core_1 = require("@doist/ui-extensions-core");
 const todoist_api_typescript_1 = require("@doist/todoist-api-typescript");
 const api_1 = require("./../api");
 const response_1 = require("../response");
-const BATCH_SIZE = 20;
+const card_1 = require("../card");
+const INFO_CARD_TEXT = `
+The project will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.`;
 const NEW_TASK_PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const GROUP_BY_SECTIONS_INPUT_ID = "Input.GroupBySections";
 const CONVERT_ACTION_ID = "Submit.Convert";
@@ -45,27 +49,10 @@ const createInputCard = (projects) => {
     }));
     return card;
 };
-const createInfoCard = () => {
-    const card = new ui_extensions_core_1.DoistCard();
-    card.addItem(ui_extensions_core_1.TextBlock.from({
-        text: `
-The project will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`,
-        wrap: true,
-        size: "large",
-    }));
-    card.addAction(ui_extensions_core_1.SubmitAction.from({
-        id: CLOSE_ACTION_ID,
-        title: "Close",
-        style: "positive",
-    }));
-    return card;
-};
 const incrementalSync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
     let tempIdMap = {};
-    for (let i = 0; i < commands.length; i += BATCH_SIZE) {
-        const commandBatch = commands.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < commands.length; i += api_1.COMMAND_BATCH_SIZE) {
+        const commandBatch = commands.slice(i, i + api_1.COMMAND_BATCH_SIZE);
         commandBatch.forEach((command) => {
             const parentId = command.args.parent_id;
             if (!parentId)
@@ -145,7 +132,7 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === "true";
             yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            response.status(200).json({ card: createInfoCard() });
+            response.status(200).json({ card: (0, card_1.createInfoCard)(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());

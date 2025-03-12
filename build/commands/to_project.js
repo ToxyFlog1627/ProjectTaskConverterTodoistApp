@@ -14,8 +14,11 @@ const ui_extensions_core_1 = require("@doist/ui-extensions-core");
 const todoist_api_typescript_1 = require("@doist/todoist-api-typescript");
 const api_1 = require("./../api");
 const response_1 = require("../response");
-// TODO: merge to_XXXX
-const BATCH_SIZE = 20;
+const card_1 = require("../card");
+const INFO_CARD_TEXT = `
+The task will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.`;
 const CREATE_NEW_PROJECT = "new_project";
 const PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const PROJECT_NAME_INPUT_ID = "Input.ProjectName";
@@ -24,10 +27,6 @@ const MOVE_TASK_DESCRIPTION_ID = "Input.MoveDescription";
 const SELECT_PROJECT_ACTION_ID = "Submit.SelectProject";
 const CREATE_PROJECT_ACTION_ID = "Submit.CreateProject";
 const CLOSE_ACTION_ID = "Submit.Close";
-const getOptions = (data) => ({
-    createRedirect: data[CREATE_REDIRECT_INPUT_ID] === "true",
-    moveDescription: data[MOVE_TASK_DESCRIPTION_ID] === "true",
-});
 const createProjectSelectionCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
     const choices = [
@@ -78,26 +77,9 @@ const createProjectCreationCard = (defaultProjectName, options) => {
     }));
     return card;
 };
-const createInfoCard = () => {
-    const card = new ui_extensions_core_1.DoistCard();
-    card.addItem(ui_extensions_core_1.TextBlock.from({
-        text: `
-The task will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`,
-        wrap: true,
-        size: "large",
-    }));
-    card.addAction(ui_extensions_core_1.SubmitAction.from({
-        id: CLOSE_ACTION_ID,
-        title: "Close",
-        style: "positive",
-    }));
-    return card;
-};
 const incrementalSync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
-    for (let i = 0; i < commands.length; i += BATCH_SIZE) {
-        const commandBatch = commands.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < commands.length; i += api_1.COMMAND_BATCH_SIZE) {
+        const commandBatch = commands.slice(i, i + api_1.COMMAND_BATCH_SIZE);
         const response = yield (0, api_1.sync)(commandBatch, token);
         if (!response || response.status != 200)
             return;
@@ -166,20 +148,23 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
-            const options = getOptions(inputs);
+            const options = {
+                createRedirect: inputs[CREATE_REDIRECT_INPUT_ID] === "true",
+                moveDescription: inputs[MOVE_TASK_DESCRIPTION_ID] === "true",
+            };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
             if (projectId === CREATE_NEW_PROJECT) {
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, options) });
             }
             else {
                 yield convertTaskToProject(api, token, taskId, projectId, options);
-                response.status(200).json({ card: createInfoCard() });
+                response.status(200).json({ card: (0, card_1.createInfoCard)(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
             }
         }
         else if (actionId === CREATE_PROJECT_ACTION_ID) {
             const project = yield api.addProject({ name: inputs[PROJECT_NAME_INPUT_ID] });
             yield convertTaskToProject(api, token, taskId, project.id, data.options);
-            response.status(200).json({ card: createInfoCard() });
+            response.status(200).json({ card: (0, card_1.createInfoCard)(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());

@@ -1,12 +1,16 @@
 import { Response } from "express";
 import { randomUUID } from "crypto";
-import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextBlock, TextInput, ToggleInput } from "@doist/ui-extensions-core";
+import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextInput, ToggleInput } from "@doist/ui-extensions-core";
 import { Project, TodoistApi } from "@doist/todoist-api-typescript";
-import { Command, sync } from "./../api";
+import { Command, COMMAND_BATCH_SIZE, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
+import { createInfoCard } from "../card";
 
-const BATCH_SIZE = 20;
+const INFO_CARD_TEXT = `
+The task will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.`;
 
 const CREATE_NEW_PROJECT = "new_project";
 
@@ -23,11 +27,6 @@ type Options = {
     createRedirect: boolean;
     moveDescription: boolean;
 };
-
-const getOptions = (data: { [key: string]: string }): Options => ({
-    createRedirect: data[CREATE_REDIRECT_INPUT_ID] === "true",
-    moveDescription: data[MOVE_TASK_DESCRIPTION_ID] === "true",
-});
 
 const createProjectSelectionCard = (projects: Project[]): DoistCard => {
     const card = new DoistCard();
@@ -100,34 +99,9 @@ const createProjectCreationCard = (defaultProjectName: string, options: Options)
     return card;
 };
 
-const createInfoCard = (): DoistCard => {
-    const card = new DoistCard();
-
-    card.addItem(
-        TextBlock.from({
-            text: `
-The task will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`,
-            wrap: true,
-            size: "large",
-        })
-    );
-
-    card.addAction(
-        SubmitAction.from({
-            id: CLOSE_ACTION_ID,
-            title: "Close",
-            style: "positive",
-        })
-    );
-
-    return card;
-};
-
 const incrementalSync = async (commands: Command[], token: string) => {
-    for (let i = 0; i < commands.length; i += BATCH_SIZE) {
-        const commandBatch = commands.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < commands.length; i += COMMAND_BATCH_SIZE) {
+        const commandBatch = commands.slice(i, i + COMMAND_BATCH_SIZE);
         const response = await sync(commandBatch, token);
         if (!response || response.status != 200) return;
 
@@ -207,20 +181,23 @@ const toProject = async (request: RequestWithToken, response: Response) => {
 
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         } else if (actionId === SELECT_PROJECT_ACTION_ID) {
-            const options = getOptions(inputs);
+            const options = {
+                createRedirect: inputs[CREATE_REDIRECT_INPUT_ID] === "true",
+                moveDescription: inputs[MOVE_TASK_DESCRIPTION_ID] === "true",
+            };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
 
             if (projectId === CREATE_NEW_PROJECT) {
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, options) });
             } else {
                 await convertTaskToProject(api, token, taskId, projectId, options);
-                response.status(200).json({ card: createInfoCard() });
+                response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
             }
         } else if (actionId === CREATE_PROJECT_ACTION_ID) {
             const project = await api.addProject({ name: inputs[PROJECT_NAME_INPUT_ID] });
 
             await convertTaskToProject(api, token, taskId, project.id, data.options);
-            response.status(200).json({ card: createInfoCard() });
+            response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
         } else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json(successResponse());
         } else {

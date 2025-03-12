@@ -2,11 +2,15 @@ import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextBlock, ToggleInput } from "@doist/ui-extensions-core";
 import { Project, TodoistApi } from "@doist/todoist-api-typescript";
-import { Command, sync } from "./../api";
+import { Command, COMMAND_BATCH_SIZE, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
+import { createInfoCard } from "../card";
 
-const BATCH_SIZE = 20;
+const INFO_CARD_TEXT = `
+The project will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.`;
 
 const NEW_TASK_PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const GROUP_BY_SECTIONS_INPUT_ID = "Input.GroupBySections";
@@ -51,35 +55,10 @@ const createInputCard = (projects: Project[]): DoistCard => {
     return card;
 };
 
-const createInfoCard = (): DoistCard => {
-    const card = new DoistCard();
-
-    card.addItem(
-        TextBlock.from({
-            text: `
-The project will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`,
-            wrap: true,
-            size: "large",
-        })
-    );
-
-    card.addAction(
-        SubmitAction.from({
-            id: CLOSE_ACTION_ID,
-            title: "Close",
-            style: "positive",
-        })
-    );
-
-    return card;
-};
-
 const incrementalSync = async (commands: Command[], token: string) => {
     let tempIdMap: { [key: string]: string } = {};
-    for (let i = 0; i < commands.length; i += BATCH_SIZE) {
-        const commandBatch = commands.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < commands.length; i += COMMAND_BATCH_SIZE) {
+        const commandBatch = commands.slice(i, i + COMMAND_BATCH_SIZE);
         commandBatch.forEach((command) => {
             const parentId = command.args.parent_id;
             if (!parentId) return;
@@ -183,8 +162,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === "true";
 
             await convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-
-            response.status(200).json({ card: createInfoCard() });
+            response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
         } else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json(successResponse());
         } else {

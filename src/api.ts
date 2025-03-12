@@ -1,5 +1,7 @@
 import axios from "axios";
 
+export const COMMAND_BATCH_SIZE = 20;
+
 export type Command = {
     type: string;
     uuid: string;
