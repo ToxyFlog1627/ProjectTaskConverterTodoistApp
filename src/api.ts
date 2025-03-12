@@ -1,6 +1,7 @@
 import axios from "axios";
 
-export const COMMAND_BATCH_SIZE = 20;
+export const COMMAND_BATCH_SIZE = Number(process.env.COMMAND_BATCH_SIZE) || 50;
+console.log(`Using COMMAND_BATCH_SIZE=${COMMAND_BATCH_SIZE}`);
 
 export type Command = {
     type: string;

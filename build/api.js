@@ -14,7 +14,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sync = exports.COMMAND_BATCH_SIZE = void 0;
 const axios_1 = __importDefault(require("axios"));
-exports.COMMAND_BATCH_SIZE = 20;
+exports.COMMAND_BATCH_SIZE = Number(process.env.COMMAND_BATCH_SIZE) || 50;
+console.log(`Using COMMAND_BATCH_SIZE=${exports.COMMAND_BATCH_SIZE}`);
 const sync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         return yield axios_1.default.post("https://api.todoist.com/sync/v9/sync", { commands }, { timeout: 60 * 1000, headers: { Authorization: `Bearer ${token}` } });
