@@ -6,6 +6,7 @@ import { Command, COMMAND_BATCH_SIZE, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
 import { createInfoCard } from "../card";
+import { waitUntil } from "@vercel/functions";
 
 const INFO_CARD_TEXT = `
 The task will now be converted in the background.
@@ -165,7 +166,7 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
         }))
     );
 
-    incrementalSync(commands, token);
+    waitUntil(incrementalSync(commands, token));
 };
 
 const toProject = async (request: RequestWithToken, response: Response) => {

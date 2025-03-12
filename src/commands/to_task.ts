@@ -6,6 +6,7 @@ import { Command, COMMAND_BATCH_SIZE, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
 import { createInfoCard } from "../card";
+import { waitUntil } from "@vercel/functions";
 
 const INFO_CARD_TEXT = `
 The project will now be converted in the background.
@@ -142,7 +143,7 @@ const convertProjectToTask = async (
         );
     }
 
-    incrementalSync(commands, token);
+    waitUntil(incrementalSync(commands, token));
 };
 
 const toTask = async (request: RequestWithToken, response: Response) => {

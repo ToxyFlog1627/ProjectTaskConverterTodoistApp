@@ -15,6 +15,7 @@ const todoist_api_typescript_1 = require("@doist/todoist-api-typescript");
 const api_1 = require("./../api");
 const response_1 = require("../response");
 const card_1 = require("../card");
+const functions_1 = require("@vercel/functions");
 const INFO_CARD_TEXT = `
 The project will now be converted in the background.
 It might take a few minutes, please don't modify it in the meantime.
@@ -116,7 +117,7 @@ const convertProjectToTask = (api, token, groupBySections, projectId, newTaskPro
             args: { id: task.id, parent_id: "root" },
         })));
     }
-    incrementalSync(commands, token);
+    (0, functions_1.waitUntil)(incrementalSync(commands, token));
 });
 const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
     try {
