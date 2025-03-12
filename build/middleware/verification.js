@@ -7,6 +7,10 @@ exports.verificationMiddleware = exports.saveRawBody = void 0;
 const crypto_js_1 = __importDefault(require("crypto-js"));
 require("dotenv/config");
 const VERIFICATION_TOKEN = process.env.VERIFICATION_TOKEN;
+if (!VERIFICATION_TOKEN) {
+    console.error('Environment variable "VERIFICATION_TOKEN" is not set!');
+    process.exit(1);
+}
 const saveRawBody = (request, _response, buffer, _encoding) => {
     if (!Buffer.isBuffer(buffer))
         return;

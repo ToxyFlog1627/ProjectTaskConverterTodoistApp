@@ -139,15 +139,13 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         const { sourceId: projectId } = params;
         if (actionType === "initial") {
             const projects = yield api.getProjects();
-            const card = createInputCard(projects);
-            response.status(200).json({ card });
+            response.status(200).json({ card: createInputCard(projects) });
         }
         else if (actionId === CONVERT_ACTION_ID) {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === "true";
             yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            const card = createInfoCard();
-            response.status(200).json({ card });
+            response.status(200).json({ card: createInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());
@@ -157,7 +155,7 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         }
     }
     catch (error) {
-        console.error(error);
+        console.error("Unexpected error while converting project to task: ", error);
         response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
 });

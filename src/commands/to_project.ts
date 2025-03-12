@@ -111,7 +111,17 @@ const incrementalSync = async (commands: Command[], token: string) => {
     for (let i = 0; i < commands.length; i += BATCH_SIZE) {
         const commandBatch = commands.slice(i, i + BATCH_SIZE);
         const response = await sync(commandBatch, token);
-        if (!response) return;
+        if (!response || response.status != 200) return;
+
+        Object.entries(response.data.sync_status).forEach(([id, status]) => {
+            if (status === "ok") return;
+
+            const command = commandBatch.filter((command) => command.uuid === id)[0];
+            console.error(`
+Unexpected error while syncing command!
+Command: ${JSON.stringify(command)}
+Response: ${JSON.stringify(status)}`);
+        });
     }
 };
 
@@ -187,7 +197,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
             response.sendStatus(404);
         }
     } catch (error) {
-        console.error(error);
+        console.error("Unexpected error while converting task to project: ", error);
         response.status(200).json(errorResponse("Unexpected error during conversion."));
     }
 };

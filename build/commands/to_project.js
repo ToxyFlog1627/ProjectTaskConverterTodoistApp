@@ -14,14 +14,20 @@ const ui_extensions_core_1 = require("@doist/ui-extensions-core");
 const todoist_api_typescript_1 = require("@doist/todoist-api-typescript");
 const api_1 = require("./../api");
 const response_1 = require("../response");
+// TODO: merge to_XXXX
 const BATCH_SIZE = 20;
 const CREATE_NEW_PROJECT = "new_project";
 const PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const PROJECT_NAME_INPUT_ID = "Input.ProjectName";
 const CREATE_REDIRECT_INPUT_ID = "Input.CreateRedirect";
+const MOVE_TASK_DESCRIPTION_ID = "Input.MoveDescription";
 const SELECT_PROJECT_ACTION_ID = "Submit.SelectProject";
 const CREATE_PROJECT_ACTION_ID = "Submit.CreateProject";
 const CLOSE_ACTION_ID = "Submit.Close";
+const getOptions = (data) => ({
+    createRedirect: data[CREATE_REDIRECT_INPUT_ID] === "true",
+    moveDescription: data[MOVE_TASK_DESCRIPTION_ID] === "true",
+});
 const createProjectSelectionCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
     const choices = [
@@ -43,6 +49,11 @@ const createProjectSelectionCard = (projects) => {
         title: "Replace with link to the project",
         defaultValue: "true",
     }));
+    card.addItem(ui_extensions_core_1.ToggleInput.from({
+        id: MOVE_TASK_DESCRIPTION_ID,
+        title: "Move description by creating a new task",
+        defaultValue: "true",
+    }));
     card.addAction(ui_extensions_core_1.SubmitAction.from({
         id: SELECT_PROJECT_ACTION_ID,
         title: "Next",
@@ -50,7 +61,7 @@ const createProjectSelectionCard = (projects) => {
     }));
     return card;
 };
-const createProjectCreationCard = (defaultProjectName, createRedirect) => {
+const createProjectCreationCard = (defaultProjectName, options) => {
     const card = new ui_extensions_core_1.DoistCard();
     card.addItem(ui_extensions_core_1.TextInput.from({
         id: PROJECT_NAME_INPUT_ID,
@@ -63,7 +74,7 @@ const createProjectCreationCard = (defaultProjectName, createRedirect) => {
         id: CREATE_PROJECT_ACTION_ID,
         title: "Next",
         style: "positive",
-        data: { createRedirect: String(createRedirect) },
+        data: { options },
     }));
     return card;
 };
@@ -88,23 +99,52 @@ const incrementalSync = (commands, token) => __awaiter(void 0, void 0, void 0, f
     for (let i = 0; i < commands.length; i += BATCH_SIZE) {
         const commandBatch = commands.slice(i, i + BATCH_SIZE);
         const response = yield (0, api_1.sync)(commandBatch, token);
-        if (!response)
+        if (!response || response.status != 200)
             return;
+        Object.entries(response.data.sync_status).forEach(([id, status]) => {
+            if (status === "ok")
+                return;
+            const command = commandBatch.filter((command) => command.uuid === id)[0];
+            console.error(`
+Unexpected error while syncing command!
+Command: ${JSON.stringify(command)}
+Response: ${JSON.stringify(status)}`);
+        });
     }
 });
-const convertTaskToProject = (api, token, taskId, projectId, createRedirect) => __awaiter(void 0, void 0, void 0, function* () {
+const convertTaskToProject = (api, token, taskId, projectId, options) => __awaiter(void 0, void 0, void 0, function* () {
     // taskID seems to be kind of "internal", so we have to get "external" id from the task  ¯\_(ツ)_/¯
     const task = yield api.getTask(taskId);
     const tasks = yield api.getTasks({ projectId: task.projectId });
     const subtasks = tasks.filter((current) => current.parentId === task.id);
     const commands = [];
-    if (createRedirect) {
+    if (options.createRedirect) {
         commands.push({
             type: "item_update",
             uuid: (0, crypto_1.randomUUID)(),
             args: {
                 id: task.id,
                 content: `[[Converted to Project](https://app.todoist.com/app/project/${projectId})] ${task.content}`,
+            },
+        });
+    }
+    if (options.moveDescription && task.description) {
+        commands.push({
+            type: "item_add",
+            temp_id: (0, crypto_1.randomUUID)(),
+            uuid: (0, crypto_1.randomUUID)(),
+            args: {
+                content: "[Original description]",
+                description: task.description,
+                project_id: projectId,
+            },
+        });
+        commands.push({
+            type: "item_update",
+            uuid: (0, crypto_1.randomUUID)(),
+            args: {
+                id: task.id,
+                description: "",
             },
         });
     }
@@ -123,28 +163,23 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
         const { contentPlain: taskTitle, sourceId: taskId } = params;
         if (actionType === "initial") {
             const projects = yield api.getProjects();
-            const card = createProjectSelectionCard(projects);
-            response.status(200).json({ card });
+            response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
-            const createRedirect = inputs[CREATE_REDIRECT_INPUT_ID] === "true";
+            const options = getOptions(inputs);
             const projectId = inputs[PROJECT_ID_INPUT_ID];
             if (projectId === CREATE_NEW_PROJECT) {
-                const card = createProjectCreationCard(taskTitle, createRedirect);
-                response.status(200).json({ card });
-                return;
+                response.status(200).json({ card: createProjectCreationCard(taskTitle, options) });
             }
-            yield convertTaskToProject(api, token, taskId, projectId, createRedirect);
-            const card = createInfoCard();
-            response.status(200).json({ card });
+            else {
+                yield convertTaskToProject(api, token, taskId, projectId, options);
+                response.status(200).json({ card: createInfoCard() });
+            }
         }
         else if (actionId === CREATE_PROJECT_ACTION_ID) {
-            const createRedirect = data["createRedirect"] === "true";
-            const projectName = inputs[PROJECT_NAME_INPUT_ID];
-            const project = yield api.addProject({ name: projectName });
-            yield convertTaskToProject(api, token, taskId, project.id, createRedirect);
-            const card = createInfoCard();
-            response.status(200).json({ card });
+            const project = yield api.addProject({ name: inputs[PROJECT_NAME_INPUT_ID] });
+            yield convertTaskToProject(api, token, taskId, project.id, data.options);
+            response.status(200).json({ card: createInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());
@@ -154,7 +189,7 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
         }
     }
     catch (error) {
-        console.error(error);
+        console.error("Unexpected error while converting task to project: ", error);
         response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
 });

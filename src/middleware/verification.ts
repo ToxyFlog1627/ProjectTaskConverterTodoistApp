@@ -2,7 +2,12 @@ import { Request, Response, NextFunction } from "express";
 import crypto from "crypto-js";
 import "dotenv/config";
 
-const VERIFICATION_TOKEN: string = process.env.VERIFICATION_TOKEN!;
+const VERIFICATION_TOKEN: string = process.env.VERIFICATION_TOKEN;
+
+if (!VERIFICATION_TOKEN) {
+    console.error('Environment variable "VERIFICATION_TOKEN" is not set!');
+    process.exit(1);
+}
 
 export type UnverifiedRequest = Request & { rawBody?: Buffer };
 

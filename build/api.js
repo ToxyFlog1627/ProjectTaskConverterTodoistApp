@@ -16,10 +16,10 @@ exports.sync = void 0;
 const axios_1 = __importDefault(require("axios"));
 const sync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        return axios_1.default.post("https://api.todoist.com/sync/v9/sync", { commands }, { timeout: 60000, headers: { Authorization: `Bearer ${token}` } });
+        return yield axios_1.default.post("https://api.todoist.com/sync/v9/sync", { commands }, { timeout: 60 * 1000, headers: { Authorization: `Bearer ${token}` } });
     }
     catch (error) {
-        console.error(error);
+        console.error("Error while syncing: ", error);
         return null;
     }
 });

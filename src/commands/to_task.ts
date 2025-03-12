@@ -193,7 +193,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
             response.sendStatus(404);
         }
     } catch (error) {
-        console.error(error);
+        console.error("Unexpected error while converting project to task: ", error);
         response.status(200).json(errorResponse("Unexpected error during conversion."));
     }
 };
