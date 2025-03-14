@@ -117,7 +117,7 @@ const convertTaskToProject = (api, token, taskId, projectId, options) => __await
             temp_id: (0, crypto_1.randomUUID)(),
             uuid: (0, crypto_1.randomUUID)(),
             args: {
-                content: "[Original description]",
+                content: "* [Description]",
                 description: task.description,
                 project_id: projectId,
             },

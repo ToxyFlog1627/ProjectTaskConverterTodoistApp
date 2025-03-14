@@ -143,7 +143,7 @@ const convertTaskToProject = async (api: TodoistApi, token: string, taskId: stri
             temp_id: randomUUID(),
             uuid: randomUUID(),
             args: {
-                content: "[Original description]",
+                content: "* [Description]",
                 description: task.description,
                 project_id: projectId,
             },
