@@ -2,7 +2,7 @@ import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextBlock, ToggleInput } from "@doist/ui-extensions-core";
 import { Project, TodoistApi } from "@doist/todoist-api-typescript";
-import { Command, COMMAND_BATCH_SIZE, sync } from "./../api";
+import { Command, COMMAND_BATCH_SIZE, paginatedRequest, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
 import { createInfoCard } from "../card";
@@ -96,8 +96,8 @@ const convertProjectToTask = async (
         },
     });
 
-    const tasks = await api.getTasks({ projectId });
-    const topLevelTasks = tasks.filter((task) => !task.parentId);
+    const tasks = await paginatedRequest(api, api.getTasks, { projectId });
+    const topLevelTasks = tasks.filter((task) => task.parentId === null);
     if (groupBySections) {
         const tasksWithoutSection = topLevelTasks.filter((task) => !task.sectionId);
         commands.push(
@@ -108,10 +108,10 @@ const convertProjectToTask = async (
             }))
         );
 
-        const sections = await api.getSections(projectId);
+        const sections = await paginatedRequest(api, api.getSections, { projectId: projectId });
         await Promise.all(
             sections.map(async (section) => {
-                const sectionTasks = await api.getTasks({ sectionId: section.id });
+                const sectionTasks = await paginatedRequest(api, api.getTasks, { sectionId: section.id });
                 const sectionTaskId = randomUUID();
 
                 commands.push({
@@ -155,7 +155,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
         const { sourceId: projectId } = params;
 
         if (actionType === "initial") {
-            const projects = await api.getProjects();
+            const projects = await paginatedRequest(api, api.getProjects, {});
 
             response.status(200).json({ card: createInputCard(projects) });
         } else if (actionId === CONVERT_ACTION_ID) {

@@ -1,8 +1,8 @@
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextInput, ToggleInput } from "@doist/ui-extensions-core";
-import { Project, TodoistApi } from "@doist/todoist-api-typescript";
-import { Command, COMMAND_BATCH_SIZE, sync } from "./../api";
+import { GetProjectsArgs, GetProjectsResponse, Project, TodoistApi } from "@doist/todoist-api-typescript";
+import { Command, COMMAND_BATCH_SIZE, paginatedRequest, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
 import { createInfoCard } from "../card";
@@ -118,12 +118,15 @@ Response: ${JSON.stringify(status)}`);
     }
 };
 
-const convertTaskToProject = async (api: TodoistApi, token: string, taskId: string, projectId: string, options: Options) => {
-    // taskID seems to be kind of "internal", so we have to get "external" id from the task  ¯\_(ツ)_/¯
+const convertTaskToProject = async (
+    api: TodoistApi,
+    token: string,
+    taskId: string,
+    projectId: string,
+    options: Options
+) => {
     const task = await api.getTask(taskId);
-    const tasks = await api.getTasks({ projectId: task.projectId });
-    const subtasks = tasks.filter((current) => current.parentId === task.id);
-
+    const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id });
     const commands: Command[] = [];
 
     if (options.createRedirect) {
@@ -178,7 +181,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
         if (actionType === "initial") {
-            const projects = await api.getProjects();
+            const projects = await paginatedRequest(api, api.getProjects, {});
 
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         } else if (actionId === SELECT_PROJECT_ACTION_ID) {

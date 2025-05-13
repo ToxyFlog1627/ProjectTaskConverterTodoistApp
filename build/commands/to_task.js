@@ -81,8 +81,8 @@ const convertProjectToTask = (api, token, groupBySections, projectId, newTaskPro
             project_id: newTaskProjectId,
         },
     });
-    const tasks = yield api.getTasks({ projectId });
-    const topLevelTasks = tasks.filter((task) => !task.parentId);
+    const tasks = yield (0, api_1.paginatedRequest)(api, api.getTasks, { projectId });
+    const topLevelTasks = tasks.filter((task) => task.parentId === null);
     if (groupBySections) {
         const tasksWithoutSection = topLevelTasks.filter((task) => !task.sectionId);
         commands.push(...tasksWithoutSection.map((task) => ({
@@ -90,9 +90,9 @@ const convertProjectToTask = (api, token, groupBySections, projectId, newTaskPro
             uuid: (0, crypto_1.randomUUID)(),
             args: { id: task.id, parent_id: "root" },
         })));
-        const sections = yield api.getSections(projectId);
+        const sections = yield (0, api_1.paginatedRequest)(api, api.getSections, { projectId: projectId });
         yield Promise.all(sections.map((section) => __awaiter(void 0, void 0, void 0, function* () {
-            const sectionTasks = yield api.getTasks({ sectionId: section.id });
+            const sectionTasks = yield (0, api_1.paginatedRequest)(api, api.getTasks, { sectionId: section.id });
             const sectionTaskId = (0, crypto_1.randomUUID)();
             commands.push({
                 type: "item_add",
@@ -126,7 +126,7 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         const { actionType, actionId, params, inputs } = request.body.action;
         const { sourceId: projectId } = params;
         if (actionType === "initial") {
-            const projects = yield api.getProjects();
+            const projects = yield (0, api_1.paginatedRequest)(api, api.getProjects, {});
             response.status(200).json({ card: createInputCard(projects) });
         }
         else if (actionId === CONVERT_ACTION_ID) {

@@ -96,10 +96,8 @@ Response: ${JSON.stringify(status)}`);
     }
 });
 const convertTaskToProject = (api, token, taskId, projectId, options) => __awaiter(void 0, void 0, void 0, function* () {
-    // taskID seems to be kind of "internal", so we have to get "external" id from the task  ¯\_(ツ)_/¯
     const task = yield api.getTask(taskId);
-    const tasks = yield api.getTasks({ projectId: task.projectId });
-    const subtasks = tasks.filter((current) => current.parentId === task.id);
+    const subtasks = yield (0, api_1.paginatedRequest)(api, api.getTasks, { parentId: task.id });
     const commands = [];
     if (options.createRedirect) {
         commands.push({
@@ -145,7 +143,7 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
         const { actionType, actionId, params, inputs, data } = request.body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
         if (actionType === "initial") {
-            const projects = yield api.getProjects();
+            const projects = yield (0, api_1.paginatedRequest)(api, api.getProjects, {});
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
