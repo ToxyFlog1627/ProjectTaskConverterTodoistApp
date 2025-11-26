@@ -14,11 +14,13 @@ It might take a few minutes, please don't modify it in the meantime.
 To see progress either perform a sync, or wait until it will be done automatically.`;
 
 const CREATE_NEW_PROJECT = "new_project";
+const NO_PARENT_PROJECT = "none";
 
 const PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const PROJECT_NAME_INPUT_ID = "Input.ProjectName";
 const CREATE_REDIRECT_INPUT_ID = "Input.CreateRedirect";
 const MOVE_DESCRIPTION_INPUT_ID = "Input.MoveDescription";
+const PARENT_ID_INPUT_ID = "Input.ParentId";
 
 const SELECT_PROJECT_ACTION_ID = "Submit.SelectProject";
 const CREATE_PROJECT_ACTION_ID = "Submit.CreateProject";
@@ -75,7 +77,11 @@ const createProjectSelectionCard = (projects: PersonalProject[]): DoistCard => {
     return card;
 };
 
-const createProjectCreationCard = (defaultProjectName: string, options: Options): DoistCard => {
+const createProjectCreationCard = (
+    defaultProjectName: string,
+    projects: PersonalProject[],
+    options: Options
+): DoistCard => {
     const card = new DoistCard();
 
     card.addItem(
@@ -85,6 +91,25 @@ const createProjectCreationCard = (defaultProjectName: string, options: Options)
             isRequired: true,
             errorMessage: "Invalid project name.",
             defaultValue: defaultProjectName,
+        })
+    );
+
+    const choices = [
+        Choice.from({ title: "None", value: NO_PARENT_PROJECT }),
+        ...projects
+            .filter(({ inboxProject }) => !inboxProject)
+            .map(({ id, name }) => Choice.from({ title: name, value: id })),
+    ];
+    card.addItem(
+        ChoiceSetInput.from({
+            id: PARENT_ID_INPUT_ID,
+            label: "Parent project",
+            isRequired: true,
+            errorMessage: "Invalid project.",
+            defaultValue: NO_PARENT_PROJECT,
+            choices,
+            isSearchable: false,
+            isMultiSelect: false,
         })
     );
 
@@ -191,13 +216,17 @@ const toProject = async (request: RequestWithToken, response: Response) => {
             const projectId = inputs[PROJECT_ID_INPUT_ID];
 
             if (projectId === CREATE_NEW_PROJECT) {
-                response.status(200).json({ card: createProjectCreationCard(taskTitle, options) });
+                const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
+                response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             } else {
                 await convertTaskToProject(api, token, taskId, projectId, options);
                 response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
             }
         } else if (actionId === CREATE_PROJECT_ACTION_ID) {
-            const project = await api.addProject({ name: inputs[PROJECT_NAME_INPUT_ID] });
+            const project = await api.addProject({
+                name: inputs[PROJECT_NAME_INPUT_ID],
+                parentId: inputs[PARENT_ID_INPUT_ID] === NO_PARENT_PROJECT ? null : inputs[PARENT_ID_INPUT_ID],
+            });
 
             await convertTaskToProject(api, token, taskId, project.id, data.options);
             response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
