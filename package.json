@@ -13,9 +13,9 @@
 		"add-build"
 	],
 	"dependencies": {
-		"@doist/todoist-api-typescript": "^4.0.4",
-		"@doist/ui-extensions-core": "^4.2.1",
-		"@vercel/functions": "^2.0.0",
+		"@doist/todoist-api-typescript": "^6.1.12",
+		"@doist/ui-extensions-core": "^5.1.2",
+		"@vercel/functions": "^3.3.4",
 		"axios": "^1.9.0",
 		"crypto-js": "^4.2.0",
 		"express": "^5.1.0"
@@ -23,13 +23,12 @@
 	"devDependencies": {
 		"@types/crypto-js": "^4.2.2",
 		"@types/express": "^5.0.1",
-		"@types/node": "^22.15.17",
-		"dotenv": "^16.5.0",
+		"@types/node": "^24.10.1",
+		"dotenv": "^17.2.3",
 		"nodemon": "^3.1.10",
 		"pre-commit": "^1.2.2",
 		"rimraf": "^6.0.1",
 		"ts-node": "^10.9.2",
-		"type-fest": "^4.41.0",
 		"typescript": "^5.8.3"
 	}
 }

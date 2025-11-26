@@ -1,4 +1,4 @@
-import express, { Request, Response, json } from "express";
+import express, { json } from "express";
 import { saveRawBody, verificationMiddleware } from "./middleware/verification";
 import { tokenExtractor } from "./middleware/token";
 import toTask from "./commands/to_task";

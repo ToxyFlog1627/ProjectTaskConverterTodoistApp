@@ -29,7 +29,9 @@ const verificationMiddleware = (request, response, next) => {
         response.sendStatus(403);
         return;
     }
-    const localRequestHash = crypto_js_1.default.HmacSHA256(request.rawBody.toString("utf-8"), VERIFICATION_TOKEN).toString(crypto_js_1.default.enc.Base64);
+    const localRequestHash = crypto_js_1.default
+        .HmacSHA256(request.rawBody.toString("utf-8"), VERIFICATION_TOKEN)
+        .toString(crypto_js_1.default.enc.Base64);
     if (localRequestHash !== requestHash) {
         response.sendStatus(403);
         return;

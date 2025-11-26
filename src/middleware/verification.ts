@@ -11,7 +11,12 @@ if (!VERIFICATION_TOKEN) {
 
 export type UnverifiedRequest = Request & { rawBody?: Buffer };
 
-export const saveRawBody = (request: UnverifiedRequest, _response: Response, buffer: Buffer, _encoding: string): void => {
+export const saveRawBody = (
+    request: UnverifiedRequest,
+    _response: Response,
+    buffer: Buffer,
+    _encoding: string
+): void => {
     if (!Buffer.isBuffer(buffer)) return;
 
     const bufferCopy = Buffer.alloc(buffer.length);
@@ -31,7 +36,9 @@ export const verificationMiddleware = (request: UnverifiedRequest, response: Res
         return;
     }
 
-    const localRequestHash = crypto.HmacSHA256(request.rawBody.toString("utf-8"), VERIFICATION_TOKEN).toString(crypto.enc.Base64);
+    const localRequestHash = crypto
+        .HmacSHA256(request.rawBody.toString("utf-8"), VERIFICATION_TOKEN)
+        .toString(crypto.enc.Base64);
     if (localRequestHash !== requestHash) {
         response.sendStatus(403);
         return;

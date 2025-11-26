@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextInput, ToggleInput } from "@doist/ui-extensions-core";
-import { GetProjectsArgs, GetProjectsResponse, Project, TodoistApi } from "@doist/todoist-api-typescript";
+import { PersonalProject, TodoistApi } from "@doist/todoist-api-typescript";
 import { Command, COMMAND_BATCH_SIZE, paginatedRequest, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
@@ -18,7 +18,7 @@ const CREATE_NEW_PROJECT = "new_project";
 const PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const PROJECT_NAME_INPUT_ID = "Input.ProjectName";
 const CREATE_REDIRECT_INPUT_ID = "Input.CreateRedirect";
-const MOVE_TASK_DESCRIPTION_ID = "Input.MoveDescription";
+const MOVE_DESCRIPTION_INPUT_ID = "Input.MoveDescription";
 
 const SELECT_PROJECT_ACTION_ID = "Submit.SelectProject";
 const CREATE_PROJECT_ACTION_ID = "Submit.CreateProject";
@@ -29,7 +29,7 @@ type Options = {
     moveDescription: boolean;
 };
 
-const createProjectSelectionCard = (projects: Project[]): DoistCard => {
+const createProjectSelectionCard = (projects: PersonalProject[]): DoistCard => {
     const card = new DoistCard();
 
     const choices = [
@@ -58,7 +58,7 @@ const createProjectSelectionCard = (projects: Project[]): DoistCard => {
     );
     card.addItem(
         ToggleInput.from({
-            id: MOVE_TASK_DESCRIPTION_ID,
+            id: MOVE_DESCRIPTION_INPUT_ID,
             title: "Move description by creating a new task",
             defaultValue: "true",
         })
@@ -82,7 +82,7 @@ const createProjectCreationCard = (defaultProjectName: string, options: Options)
         TextInput.from({
             id: PROJECT_NAME_INPUT_ID,
             label: "New project name",
-            isRequired: false,
+            isRequired: true,
             errorMessage: "Invalid project name.",
             defaultValue: defaultProjectName,
         })
@@ -181,13 +181,12 @@ const toProject = async (request: RequestWithToken, response: Response) => {
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
         if (actionType === "initial") {
-            const projects = await paginatedRequest(api, api.getProjects, {});
-
+            const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         } else if (actionId === SELECT_PROJECT_ACTION_ID) {
             const options = {
                 createRedirect: inputs[CREATE_REDIRECT_INPUT_ID] === "true",
-                moveDescription: inputs[MOVE_TASK_DESCRIPTION_ID] === "true",
+                moveDescription: inputs[MOVE_DESCRIPTION_INPUT_ID] === "true",
             };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
 

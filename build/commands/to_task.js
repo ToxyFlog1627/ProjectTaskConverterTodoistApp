@@ -26,7 +26,7 @@ const CONVERT_ACTION_ID = "Submit.Convert";
 const CLOSE_ACTION_ID = "Submit.Close";
 const createInputCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
-    const inboxProject = projects.filter((project) => project.isInboxProject)[0].id;
+    const inboxProject = projects.filter((project) => project.inboxProject)[0].id;
     const choices = [...projects.map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id }))];
     card.addItem(ui_extensions_core_1.ChoiceSetInput.from({
         id: NEW_TASK_PROJECT_ID_INPUT_ID,
@@ -126,7 +126,7 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         const { actionType, actionId, params, inputs } = request.body.action;
         const { sourceId: projectId } = params;
         if (actionType === "initial") {
-            const projects = yield (0, api_1.paginatedRequest)(api, api.getProjects, {});
+            const projects = (yield (0, api_1.paginatedRequest)(api, api.getProjects, {}));
             response.status(200).json({ card: createInputCard(projects) });
         }
         else if (actionId === CONVERT_ACTION_ID) {

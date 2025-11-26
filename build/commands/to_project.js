@@ -21,10 +21,12 @@ The task will now be converted in the background.
 It might take a few minutes, please don't modify it in the meantime.
 To see progress either perform a sync, or wait until it will be done automatically.`;
 const CREATE_NEW_PROJECT = "new_project";
+const NO_PARENT_PROJECT = "none";
 const PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const PROJECT_NAME_INPUT_ID = "Input.ProjectName";
 const CREATE_REDIRECT_INPUT_ID = "Input.CreateRedirect";
-const MOVE_TASK_DESCRIPTION_ID = "Input.MoveDescription";
+const MOVE_DESCRIPTION_INPUT_ID = "Input.MoveDescription";
+const PARENT_ID_INPUT_ID = "Input.ParentId";
 const SELECT_PROJECT_ACTION_ID = "Submit.SelectProject";
 const CREATE_PROJECT_ACTION_ID = "Submit.CreateProject";
 const CLOSE_ACTION_ID = "Submit.Close";
@@ -50,7 +52,7 @@ const createProjectSelectionCard = (projects) => {
         defaultValue: "true",
     }));
     card.addItem(ui_extensions_core_1.ToggleInput.from({
-        id: MOVE_TASK_DESCRIPTION_ID,
+        id: MOVE_DESCRIPTION_INPUT_ID,
         title: "Move description by creating a new task",
         defaultValue: "true",
     }));
@@ -61,14 +63,30 @@ const createProjectSelectionCard = (projects) => {
     }));
     return card;
 };
-const createProjectCreationCard = (defaultProjectName, options) => {
+const createProjectCreationCard = (defaultProjectName, projects, options) => {
     const card = new ui_extensions_core_1.DoistCard();
     card.addItem(ui_extensions_core_1.TextInput.from({
         id: PROJECT_NAME_INPUT_ID,
         label: "New project name",
-        isRequired: false,
+        isRequired: true,
         errorMessage: "Invalid project name.",
         defaultValue: defaultProjectName,
+    }));
+    const choices = [
+        ui_extensions_core_1.Choice.from({ title: "None", value: NO_PARENT_PROJECT }),
+        ...projects
+            .filter(({ inboxProject }) => !inboxProject)
+            .map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id })),
+    ];
+    card.addItem(ui_extensions_core_1.ChoiceSetInput.from({
+        id: PARENT_ID_INPUT_ID,
+        label: "Parent project",
+        isRequired: true,
+        errorMessage: "Invalid project.",
+        defaultValue: NO_PARENT_PROJECT,
+        choices,
+        isSearchable: false,
+        isMultiSelect: false,
     }));
     card.addAction(ui_extensions_core_1.SubmitAction.from({
         id: CREATE_PROJECT_ACTION_ID,
@@ -143,17 +161,18 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
         const { actionType, actionId, params, inputs, data } = request.body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
         if (actionType === "initial") {
-            const projects = yield (0, api_1.paginatedRequest)(api, api.getProjects, {});
+            const projects = (yield (0, api_1.paginatedRequest)(api, api.getProjects, {}));
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
             const options = {
                 createRedirect: inputs[CREATE_REDIRECT_INPUT_ID] === "true",
-                moveDescription: inputs[MOVE_TASK_DESCRIPTION_ID] === "true",
+                moveDescription: inputs[MOVE_DESCRIPTION_INPUT_ID] === "true",
             };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
             if (projectId === CREATE_NEW_PROJECT) {
-                response.status(200).json({ card: createProjectCreationCard(taskTitle, options) });
+                const projects = (yield (0, api_1.paginatedRequest)(api, api.getProjects, {}));
+                response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             }
             else {
                 yield convertTaskToProject(api, token, taskId, projectId, options);
@@ -161,7 +180,10 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
             }
         }
         else if (actionId === CREATE_PROJECT_ACTION_ID) {
-            const project = yield api.addProject({ name: inputs[PROJECT_NAME_INPUT_ID] });
+            const project = yield api.addProject({
+                name: inputs[PROJECT_NAME_INPUT_ID],
+                parentId: inputs[PARENT_ID_INPUT_ID] === NO_PARENT_PROJECT ? null : inputs[PARENT_ID_INPUT_ID],
+            });
             yield convertTaskToProject(api, token, taskId, project.id, data.options);
             response.status(200).json({ card: (0, card_1.createInfoCard)(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
         }

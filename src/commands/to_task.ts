@@ -1,7 +1,7 @@
 import { Response } from "express";
 import { randomUUID } from "crypto";
-import { Choice, ChoiceSetInput, DoistCard, SubmitAction, TextBlock, ToggleInput } from "@doist/ui-extensions-core";
-import { Project, TodoistApi } from "@doist/todoist-api-typescript";
+import { Choice, ChoiceSetInput, DoistCard, SubmitAction, ToggleInput } from "@doist/ui-extensions-core";
+import { PersonalProject, TodoistApi } from "@doist/todoist-api-typescript";
 import { Command, COMMAND_BATCH_SIZE, paginatedRequest, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
@@ -19,10 +19,10 @@ const GROUP_BY_SECTIONS_INPUT_ID = "Input.GroupBySections";
 const CONVERT_ACTION_ID = "Submit.Convert";
 const CLOSE_ACTION_ID = "Submit.Close";
 
-const createInputCard = (projects: Project[]): DoistCard => {
+const createInputCard = (projects: PersonalProject[]): DoistCard => {
     const card = new DoistCard();
 
-    const inboxProject = projects.filter((project) => project.isInboxProject)[0].id;
+    const inboxProject = projects.filter((project) => project.inboxProject)[0].id;
     const choices = [...projects.map(({ id, name }) => Choice.from({ title: name, value: id }))];
     card.addItem(
         ChoiceSetInput.from({
@@ -155,8 +155,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
         const { sourceId: projectId } = params;
 
         if (actionType === "initial") {
-            const projects = await paginatedRequest(api, api.getProjects, {});
-
+            const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
             response.status(200).json({ card: createInputCard(projects) });
         } else if (actionId === CONVERT_ACTION_ID) {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
