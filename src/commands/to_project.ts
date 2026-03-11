@@ -8,11 +8,6 @@ import { successResponse, errorResponse } from "../response";
 import { createInfoCard } from "../card";
 import { waitUntil } from "@vercel/functions";
 
-const INFO_CARD_TEXT = `
-The task will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`;
-
 const CREATE_NEW_PROJECT = "new_project";
 const NO_PARENT_PROJECT = "none";
 
@@ -30,6 +25,19 @@ type Options = {
     createRedirect: boolean;
     moveDescription: boolean;
 };
+
+const createRetryInfoCard = (): DoistCard =>
+    createInfoCard(CLOSE_ACTION_ID, `Please make sure that the task is synced and try again.`);
+
+const createSyncInfoCard = (): DoistCard =>
+    createInfoCard(
+        CLOSE_ACTION_ID,
+        `
+The task will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.
+        `
+    );
 
 const createProjectSelectionCard = (projects: PersonalProject[]): DoistCard => {
     const card = new DoistCard();
@@ -206,6 +214,12 @@ const toProject = async (request: RequestWithToken, response: Response) => {
         const { contentPlain: taskTitle, sourceId: taskId } = params;
 
         if (actionType === "initial") {
+            // Make sure that task has been synced and has a proper ID.
+            if (taskId.startsWith("tmp-")) {
+                response.status(200).json({ card: createRetryInfoCard() });
+                return;
+            }
+
             const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         } else if (actionId === SELECT_PROJECT_ACTION_ID) {
@@ -220,7 +234,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             } else {
                 await convertTaskToProject(api, token, taskId, projectId, options);
-                response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
+                response.status(200).json({ card: createSyncInfoCard() });
             }
         } else if (actionId === CREATE_PROJECT_ACTION_ID) {
             const project = await api.addProject({
@@ -229,7 +243,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
             });
 
             await convertTaskToProject(api, token, taskId, project.id, data.options);
-            response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
+            response.status(200).json({ card: createSyncInfoCard() });
         } else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json(successResponse());
         } else {

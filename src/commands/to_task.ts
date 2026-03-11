@@ -8,16 +8,24 @@ import { successResponse, errorResponse } from "../response";
 import { createInfoCard } from "../card";
 import { waitUntil } from "@vercel/functions";
 
-const INFO_CARD_TEXT = `
-The project will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`;
-
 const NEW_TASK_PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const GROUP_BY_SECTIONS_INPUT_ID = "Input.GroupBySections";
 
 const CONVERT_ACTION_ID = "Submit.Convert";
 const CLOSE_ACTION_ID = "Submit.Close";
+
+const createRetryInfoCard = (): DoistCard =>
+    createInfoCard(CLOSE_ACTION_ID, `Please make sure that the project is synced and try again.`);
+
+const createSyncInfoCard = (): DoistCard =>
+    createInfoCard(
+        CLOSE_ACTION_ID,
+        `
+The project will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.
+        `
+    );
 
 const createInputCard = (projects: PersonalProject[]): DoistCard => {
     const card = new DoistCard();
@@ -155,6 +163,12 @@ const toTask = async (request: RequestWithToken, response: Response) => {
         const { sourceId: projectId } = params;
 
         if (actionType === "initial") {
+            // Make sure that task has been synced and has a proper ID.
+            if (projectId.startsWith("tmp-")) {
+                response.status(200).json({ card: createRetryInfoCard() });
+                return;
+            }
+
             const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
             response.status(200).json({ card: createInputCard(projects) });
         } else if (actionId === CONVERT_ACTION_ID) {
@@ -162,7 +176,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === "true";
 
             await convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            response.status(200).json({ card: createInfoCard(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
+            response.status(200).json({ card: createSyncInfoCard() });
         } else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json(successResponse());
         } else {

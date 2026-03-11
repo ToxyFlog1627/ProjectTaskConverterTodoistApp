@@ -16,14 +16,16 @@ const api_1 = require("./../api");
 const response_1 = require("../response");
 const card_1 = require("../card");
 const functions_1 = require("@vercel/functions");
-const INFO_CARD_TEXT = `
-The project will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`;
 const NEW_TASK_PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const GROUP_BY_SECTIONS_INPUT_ID = "Input.GroupBySections";
 const CONVERT_ACTION_ID = "Submit.Convert";
 const CLOSE_ACTION_ID = "Submit.Close";
+const createRetryInfoCard = () => (0, card_1.createInfoCard)(CLOSE_ACTION_ID, `Please make sure that the project is synced and try again.`);
+const createSyncInfoCard = () => (0, card_1.createInfoCard)(CLOSE_ACTION_ID, `
+The project will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.
+        `);
 const createInputCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
     const inboxProject = projects.filter((project) => project.inboxProject)[0].id;
@@ -126,6 +128,11 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
         const { actionType, actionId, params, inputs } = request.body.action;
         const { sourceId: projectId } = params;
         if (actionType === "initial") {
+            // Make sure that task has been synced and has a proper ID.
+            if (projectId.startsWith("tmp-")) {
+                response.status(200).json({ card: createRetryInfoCard() });
+                return;
+            }
             const projects = (yield (0, api_1.paginatedRequest)(api, api.getProjects, {}));
             response.status(200).json({ card: createInputCard(projects) });
         }
@@ -133,7 +140,7 @@ const toTask = (request, response) => __awaiter(void 0, void 0, void 0, function
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === "true";
             yield convertProjectToTask(api, token, groupBySections, projectId, newTaskProjectId);
-            response.status(200).json({ card: (0, card_1.createInfoCard)(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
+            response.status(200).json({ card: createSyncInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());

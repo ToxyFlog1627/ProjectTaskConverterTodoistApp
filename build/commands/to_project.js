@@ -16,10 +16,6 @@ const api_1 = require("./../api");
 const response_1 = require("../response");
 const card_1 = require("../card");
 const functions_1 = require("@vercel/functions");
-const INFO_CARD_TEXT = `
-The task will now be converted in the background.
-It might take a few minutes, please don't modify it in the meantime.
-To see progress either perform a sync, or wait until it will be done automatically.`;
 const CREATE_NEW_PROJECT = "new_project";
 const NO_PARENT_PROJECT = "none";
 const PROJECT_ID_INPUT_ID = "Input.ProjectId";
@@ -30,6 +26,12 @@ const PARENT_ID_INPUT_ID = "Input.ParentId";
 const SELECT_PROJECT_ACTION_ID = "Submit.SelectProject";
 const CREATE_PROJECT_ACTION_ID = "Submit.CreateProject";
 const CLOSE_ACTION_ID = "Submit.Close";
+const createRetryInfoCard = () => (0, card_1.createInfoCard)(CLOSE_ACTION_ID, `Please make sure that the task is synced and try again.`);
+const createSyncInfoCard = () => (0, card_1.createInfoCard)(CLOSE_ACTION_ID, `
+The task will now be converted in the background.
+It might take a few minutes, please don't modify it in the meantime.
+To see progress either perform a sync, or wait until it will be done automatically.
+        `);
 const createProjectSelectionCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
     const choices = [
@@ -161,6 +163,11 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
         const { actionType, actionId, params, inputs, data } = request.body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
         if (actionType === "initial") {
+            // Make sure that task has been synced and has a proper ID.
+            if (taskId.startsWith("tmp-")) {
+                response.status(200).json({ card: createRetryInfoCard() });
+                return;
+            }
             const projects = (yield (0, api_1.paginatedRequest)(api, api.getProjects, {}));
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
@@ -176,7 +183,7 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
             }
             else {
                 yield convertTaskToProject(api, token, taskId, projectId, options);
-                response.status(200).json({ card: (0, card_1.createInfoCard)(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
+                response.status(200).json({ card: createSyncInfoCard() });
             }
         }
         else if (actionId === CREATE_PROJECT_ACTION_ID) {
@@ -185,7 +192,7 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
                 parentId: inputs[PARENT_ID_INPUT_ID] === NO_PARENT_PROJECT ? null : inputs[PARENT_ID_INPUT_ID],
             });
             yield convertTaskToProject(api, token, taskId, project.id, data.options);
-            response.status(200).json({ card: (0, card_1.createInfoCard)(CLOSE_ACTION_ID, INFO_CARD_TEXT) });
+            response.status(200).json({ card: createSyncInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());

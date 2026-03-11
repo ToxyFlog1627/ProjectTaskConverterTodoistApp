@@ -28,15 +28,15 @@ interface PaginatedParameter {
     cursor?: string | null;
 }
 
-type PaginatedFunction<P extends PaginatedParameter, R> = (arg: P) => Promise<{
+type PaginatedFunction<P, R> = (arg: P) => Promise<{
     results: R[];
     nextCursor: string | null;
 }>;
 
-export const paginatedRequest = async <P extends PaginatedParameter, R>(
+export const paginatedRequest = async <P, R, T extends PaginatedParameter & P>(
     api: TodoistApi,
     apiFunction: PaginatedFunction<P, R>,
-    arg: P
+    arg: NoInfer<T>
 ): Promise<R[]> => {
     apiFunction = apiFunction.bind(api);
 
