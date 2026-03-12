@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const crypto_1 = require("crypto");
 const ui_extensions_core_1 = require("@doist/ui-extensions-core");
@@ -98,10 +89,10 @@ const createProjectCreationCard = (defaultProjectName, projects, options) => {
     }));
     return card;
 };
-const incrementalSync = (commands, token) => __awaiter(void 0, void 0, void 0, function* () {
+const incrementalSync = async (commands, token) => {
     for (let i = 0; i < commands.length; i += api_1.COMMAND_BATCH_SIZE) {
         const commandBatch = commands.slice(i, i + api_1.COMMAND_BATCH_SIZE);
-        const response = yield (0, api_1.sync)(commandBatch, token);
+        const response = await (0, api_1.sync)(commandBatch, token);
         if (!response || response.status != 200)
             return;
         Object.entries(response.data.sync_status).forEach(([id, status]) => {
@@ -114,10 +105,10 @@ Command: ${JSON.stringify(command)}
 Response: ${JSON.stringify(status)}`);
         });
     }
-});
-const convertTaskToProject = (api, token, taskId, projectId, options) => __awaiter(void 0, void 0, void 0, function* () {
-    const task = yield api.getTask(taskId);
-    const subtasks = yield (0, api_1.paginatedRequest)(api, api.getTasks, { parentId: task.id });
+};
+const convertTaskToProject = async (api, token, taskId, projectId, options) => {
+    const task = await api.getTask(taskId);
+    const subtasks = await (0, api_1.paginatedRequest)(api, api.getTasks, { parentId: task.id });
     const commands = [];
     if (options.createRedirect) {
         commands.push({
@@ -155,20 +146,23 @@ const convertTaskToProject = (api, token, taskId, projectId, options) => __await
         args: { id, project_id: projectId },
     })));
     (0, functions_1.waitUntil)(incrementalSync(commands, token));
-});
-const toProject = (request, response) => __awaiter(void 0, void 0, void 0, function* () {
+};
+const toProject = async (request, response) => {
+    (0, api_1.persistentLog)(`toProject entry`);
     try {
         const token = request.token;
         const api = new todoist_api_typescript_1.TodoistApi(token);
         const { actionType, actionId, params, inputs, data } = request.body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
+        (0, api_1.persistentLog)(`toProject action: ${JSON.stringify(request.body.action)}`);
         if (actionType === "initial") {
             // Make sure that task has been synced and has a proper ID.
             if (taskId.startsWith("tmp-")) {
                 response.status(200).json({ card: createRetryInfoCard() });
                 return;
             }
-            const projects = (yield (0, api_1.paginatedRequest)(api, api.getProjects, {}));
+            const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, {}));
+            (0, api_1.persistentLog)(`Initial, projects: ${JSON.stringify(projects)}`);
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
@@ -177,27 +171,30 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
                 moveDescription: inputs[MOVE_DESCRIPTION_INPUT_ID] === "true",
             };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
+            (0, api_1.persistentLog)(`Select project: ${projectId}`);
             if (projectId === CREATE_NEW_PROJECT) {
-                const projects = (yield (0, api_1.paginatedRequest)(api, api.getProjects, {}));
+                const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, {}));
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             }
             else {
-                yield convertTaskToProject(api, token, taskId, projectId, options);
+                await convertTaskToProject(api, token, taskId, projectId, options);
                 response.status(200).json({ card: createSyncInfoCard() });
             }
         }
         else if (actionId === CREATE_PROJECT_ACTION_ID) {
-            const project = yield api.addProject({
+            const project = await api.addProject({
                 name: inputs[PROJECT_NAME_INPUT_ID],
                 parentId: inputs[PARENT_ID_INPUT_ID] === NO_PARENT_PROJECT ? null : inputs[PARENT_ID_INPUT_ID],
             });
-            yield convertTaskToProject(api, token, taskId, project.id, data.options);
+            (0, api_1.persistentLog)(`Create project: ${JSON.stringify(project)}`);
+            await convertTaskToProject(api, token, taskId, project.id, data.options);
             response.status(200).json({ card: createSyncInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());
         }
         else {
+            (0, api_1.persistentLog)(`404, action ID: ${actionId}`);
             response.sendStatus(404);
         }
     }
@@ -205,6 +202,6 @@ const toProject = (request, response) => __awaiter(void 0, void 0, void 0, funct
         console.error("Unexpected error while converting task to project: ", error);
         response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
-});
+};
 exports.default = toProject;
 //# sourceMappingURL=to_project.js.map

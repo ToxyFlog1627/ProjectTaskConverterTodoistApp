@@ -1,4 +1,5 @@
 import { TodoistApi } from "@doist/todoist-api-typescript";
+import { Redis } from "@upstash/redis";
 import axios from "axios";
 
 export const COMMAND_BATCH_SIZE = Number(process.env.COMMAND_BATCH_SIZE) || 50;
@@ -49,4 +50,11 @@ export const paginatedRequest = async <P, R, T extends PaginatedParameter & P>(
         arg.cursor = response.nextCursor;
     }
     return result;
+};
+
+const redis = Redis.fromEnv();
+
+export const persistentLog = async (message: string) => {
+    console.log(message);
+    await redis.set(`${Date.now()}${Math.floor(Math.random() * 100000)}`, message, { ex: 60 * 60 * 24 });
 };

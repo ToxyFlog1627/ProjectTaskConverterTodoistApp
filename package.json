@@ -15,6 +15,7 @@
 	"dependencies": {
 		"@doist/todoist-api-typescript": "^6.1.12",
 		"@doist/ui-extensions-core": "^5.1.2",
+		"@upstash/redis": "^1.31.0",
 		"@vercel/functions": "^3.3.4",
 		"axios": "^1.9.0",
 		"crypto-js": "^4.2.0",
