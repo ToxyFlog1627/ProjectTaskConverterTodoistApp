@@ -90,6 +90,7 @@ const createProjectCreationCard = (defaultProjectName, projects, options) => {
     return card;
 };
 const incrementalSync = async (commands, token) => {
+    (0, api_1.persistentLog)("Starting to sync commands: " + JSON.stringify(commands));
     for (let i = 0; i < commands.length; i += api_1.COMMAND_BATCH_SIZE) {
         const commandBatch = commands.slice(i, i + api_1.COMMAND_BATCH_SIZE);
         const response = await (0, api_1.sync)(commandBatch, token);
@@ -99,10 +100,12 @@ const incrementalSync = async (commands, token) => {
             if (status === "ok")
                 return;
             const command = commandBatch.filter((command) => command.uuid === id)[0];
-            console.error(`
+            const error = `
 Unexpected error while syncing command!
 Command: ${JSON.stringify(command)}
-Response: ${JSON.stringify(status)}`);
+Response: ${JSON.stringify(status)}`;
+            console.error(error);
+            (0, api_1.persistentLog)(error);
         });
     }
 };
@@ -154,7 +157,7 @@ const toProject = async (request, response) => {
         const api = new todoist_api_typescript_1.TodoistApi(token);
         const { actionType, actionId, params, inputs, data } = request.body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
-        (0, api_1.persistentLog)(`toProject action: ${JSON.stringify(request.body.action)}`);
+        (0, api_1.persistentLog)(`toProject action BEGIN: ${JSON.stringify(request.body.action)}`);
         if (actionType === "initial") {
             // Make sure that task has been synced and has a proper ID.
             if (taskId.startsWith("tmp-")) {
@@ -174,10 +177,12 @@ const toProject = async (request, response) => {
             (0, api_1.persistentLog)(`Select project: ${projectId}`);
             if (projectId === CREATE_NEW_PROJECT) {
                 const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, {}));
+                (0, api_1.persistentLog)(`Select project, answering with: ${JSON.stringify(createProjectCreationCard(taskTitle, projects, options))}`);
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             }
             else {
                 await convertTaskToProject(api, token, taskId, projectId, options);
+                (0, api_1.persistentLog)(`Select project, answering with: ${JSON.stringify(createSyncInfoCard())}`);
                 response.status(200).json({ card: createSyncInfoCard() });
             }
         }
@@ -188,6 +193,7 @@ const toProject = async (request, response) => {
             });
             (0, api_1.persistentLog)(`Create project: ${JSON.stringify(project)}`);
             await convertTaskToProject(api, token, taskId, project.id, data.options);
+            (0, api_1.persistentLog)(`Create project, answering with: ${JSON.stringify(createSyncInfoCard())}`);
             response.status(200).json({ card: createSyncInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {
@@ -197,8 +203,10 @@ const toProject = async (request, response) => {
             (0, api_1.persistentLog)(`404, action ID: ${actionId}`);
             response.sendStatus(404);
         }
+        (0, api_1.persistentLog)(`toProject action END: ${JSON.stringify(request.body.action)}`);
     }
     catch (error) {
+        (0, api_1.persistentLog)("Unexpected error while converting task to project: " + error);
         console.error("Unexpected error while converting task to project: ", error);
         response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
