@@ -60,10 +60,10 @@ type PaginatedFunction<P, R> = (arg: P) => Promise<{
     nextCursor: string | null;
 }>;
 
-export const paginatedRequest = async <P, R, T extends PaginatedParameter & P>(
+export const paginatedRequest = async <P, R>(
     api: TodoistApi,
     apiFunction: PaginatedFunction<P, R>,
-    arg: NoInfer<T>
+    arg: NoInfer<P & PaginatedParameter>
 ): Promise<R[]> => {
     apiFunction = apiFunction.bind(api);
 
