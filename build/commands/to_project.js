@@ -7,6 +7,7 @@ const api_1 = require("./../api");
 const response_1 = require("../response");
 const card_1 = require("../card");
 const functions_1 = require("@vercel/functions");
+const redis_1 = require("../redis");
 const CREATE_NEW_PROJECT = "new_project";
 const NO_PARENT_PROJECT = "none";
 const PROJECT_ID_INPUT_ID = "Input.ProjectId";
@@ -89,26 +90,6 @@ const createProjectCreationCard = (defaultProjectName, projects, options) => {
     }));
     return card;
 };
-const incrementalSync = async (commands, token) => {
-    (0, api_1.persistentLog)("Starting to sync commands: " + JSON.stringify(commands));
-    for (let i = 0; i < commands.length; i += api_1.COMMAND_BATCH_SIZE) {
-        const commandBatch = commands.slice(i, i + api_1.COMMAND_BATCH_SIZE);
-        const response = await (0, api_1.sync)(commandBatch, token);
-        if (!response || response.status != 200)
-            return;
-        Object.entries(response.data.sync_status).forEach(([id, status]) => {
-            if (status === "ok")
-                return;
-            const command = commandBatch.filter((command) => command.uuid === id)[0];
-            const error = `
-Unexpected error while syncing command!
-Command: ${JSON.stringify(command)}
-Response: ${JSON.stringify(status)}`;
-            console.error(error);
-            (0, api_1.persistentLog)(error);
-        });
-    }
-};
 const convertTaskToProject = async (api, token, taskId, projectId, options) => {
     const task = await api.getTask(taskId);
     const subtasks = await (0, api_1.paginatedRequest)(api, api.getTasks, { parentId: task.id });
@@ -148,16 +129,14 @@ const convertTaskToProject = async (api, token, taskId, projectId, options) => {
         uuid: (0, crypto_1.randomUUID)(),
         args: { id, project_id: projectId },
     })));
-    (0, functions_1.waitUntil)(incrementalSync(commands, token));
+    (0, functions_1.waitUntil)((0, api_1.sync)(commands, token));
 };
 const toProject = async (request, response) => {
-    (0, api_1.persistentLog)(`toProject entry`);
     try {
         const token = request.token;
         const api = new todoist_api_typescript_1.TodoistApi(token);
         const { actionType, actionId, params, inputs, data } = request.body.action;
         const { contentPlain: taskTitle, sourceId: taskId } = params;
-        (0, api_1.persistentLog)(`toProject action BEGIN: ${JSON.stringify(request.body.action)}`);
         if (actionType === "initial") {
             // Make sure that task has been synced and has a proper ID.
             if (taskId.startsWith("tmp-")) {
@@ -165,7 +144,6 @@ const toProject = async (request, response) => {
                 return;
             }
             const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, {}));
-            (0, api_1.persistentLog)(`Initial, projects: ${JSON.stringify(projects)}`);
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
@@ -174,15 +152,12 @@ const toProject = async (request, response) => {
                 moveDescription: inputs[MOVE_DESCRIPTION_INPUT_ID] === "true",
             };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
-            (0, api_1.persistentLog)(`Select project: ${projectId}`);
             if (projectId === CREATE_NEW_PROJECT) {
                 const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, {}));
-                (0, api_1.persistentLog)(`Select project, answering with: ${JSON.stringify(createProjectCreationCard(taskTitle, projects, options))}`);
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             }
             else {
                 await convertTaskToProject(api, token, taskId, projectId, options);
-                (0, api_1.persistentLog)(`Select project, answering with: ${JSON.stringify(createSyncInfoCard())}`);
                 response.status(200).json({ card: createSyncInfoCard() });
             }
         }
@@ -191,23 +166,18 @@ const toProject = async (request, response) => {
                 name: inputs[PROJECT_NAME_INPUT_ID],
                 parentId: inputs[PARENT_ID_INPUT_ID] === NO_PARENT_PROJECT ? null : inputs[PARENT_ID_INPUT_ID],
             });
-            (0, api_1.persistentLog)(`Create project: ${JSON.stringify(project)}`);
             await convertTaskToProject(api, token, taskId, project.id, data.options);
-            (0, api_1.persistentLog)(`Create project, answering with: ${JSON.stringify(createSyncInfoCard())}`);
             response.status(200).json({ card: createSyncInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json((0, response_1.successResponse)());
         }
         else {
-            (0, api_1.persistentLog)(`404, action ID: ${actionId}`);
             response.sendStatus(404);
         }
-        (0, api_1.persistentLog)(`toProject action END: ${JSON.stringify(request.body.action)}`);
     }
     catch (error) {
-        (0, api_1.persistentLog)("Unexpected error while converting task to project: " + error);
-        console.error("Unexpected error while converting task to project: ", error);
+        (0, redis_1.storeLog)("Unexpected error while converting task to project: " + error);
         response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
 };

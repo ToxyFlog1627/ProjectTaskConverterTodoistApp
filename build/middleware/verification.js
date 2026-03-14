@@ -5,7 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verificationMiddleware = exports.saveRawBody = void 0;
 const crypto_js_1 = __importDefault(require("crypto-js"));
-require("dotenv/config");
 const VERIFICATION_TOKEN = process.env.VERIFICATION_TOKEN;
 if (!VERIFICATION_TOKEN) {
     console.error('Environment variable "VERIFICATION_TOKEN" is not set!');

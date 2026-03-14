@@ -7,6 +7,7 @@ const api_1 = require("./../api");
 const response_1 = require("../response");
 const card_1 = require("../card");
 const functions_1 = require("@vercel/functions");
+const redis_1 = require("../redis");
 const NEW_TASK_PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const GROUP_BY_SECTIONS_INPUT_ID = "Input.GroupBySections";
 const CONVERT_ACTION_ID = "Submit.Convert";
@@ -19,7 +20,9 @@ To see progress either perform a sync, or wait until it will be done automatical
         `);
 const createInputCard = (projects) => {
     const card = new ui_extensions_core_1.DoistCard();
-    const inboxProject = projects.filter((project) => project.inboxProject)[0].id;
+    const inboxProject = projects.find((project) => project.inboxProject)?.id;
+    if (!inboxProject)
+        throw new Error("Failed to find inbox project");
     const choices = [...projects.map(({ id, name }) => ui_extensions_core_1.Choice.from({ title: name, value: id }))];
     card.addItem(ui_extensions_core_1.ChoiceSetInput.from({
         id: NEW_TASK_PROJECT_ID_INPUT_ID,
@@ -42,25 +45,6 @@ const createInputCard = (projects) => {
         style: "positive",
     }));
     return card;
-};
-const incrementalSync = async (commands, token) => {
-    let tempIdMap = {};
-    for (let i = 0; i < commands.length; i += api_1.COMMAND_BATCH_SIZE) {
-        const commandBatch = commands.slice(i, i + api_1.COMMAND_BATCH_SIZE);
-        commandBatch.forEach((command) => {
-            const parentId = command.args.parent_id;
-            if (!parentId)
-                return;
-            const mappedId = tempIdMap[command.args.parent_id];
-            if (!mappedId)
-                return;
-            command.args.parent_id = mappedId;
-        });
-        const response = await (0, api_1.sync)(commandBatch, token);
-        if (!response)
-            return;
-        tempIdMap = { ...tempIdMap, ...response.data.temp_id_mapping };
-    }
 };
 const convertProjectToTask = async (api, token, groupBySections, projectId, newTaskProjectId) => {
     const commands = [];
@@ -110,7 +94,7 @@ const convertProjectToTask = async (api, token, groupBySections, projectId, newT
             args: { id: task.id, parent_id: "root" },
         })));
     }
-    (0, functions_1.waitUntil)(incrementalSync(commands, token));
+    (0, functions_1.waitUntil)((0, api_1.sync)(commands, token));
 };
 const toTask = async (request, response) => {
     try {
@@ -141,7 +125,7 @@ const toTask = async (request, response) => {
         }
     }
     catch (error) {
-        console.error("Unexpected error while converting project to task: ", error);
+        (0, redis_1.storeLog)("Unexpected error while converting project to task: " + error);
         response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
 };

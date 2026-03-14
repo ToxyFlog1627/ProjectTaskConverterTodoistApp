@@ -1,9 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto-js";
-import "dotenv/config";
 
-const VERIFICATION_TOKEN: string = process.env.VERIFICATION_TOKEN;
-
+const VERIFICATION_TOKEN: string | undefined = process.env.VERIFICATION_TOKEN;
 if (!VERIFICATION_TOKEN) {
     console.error('Environment variable "VERIFICATION_TOKEN" is not set!');
     process.exit(1);
@@ -21,7 +19,7 @@ export const saveRawBody = (
 
     const bufferCopy = Buffer.alloc(buffer.length);
     buffer.copy(bufferCopy);
-    (request as any).rawBody = bufferCopy;
+    request.rawBody = bufferCopy;
 };
 
 export const verificationMiddleware = (request: UnverifiedRequest, response: Response, next: NextFunction): void => {

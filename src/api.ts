@@ -1,6 +1,6 @@
 import { TodoistApi } from "@doist/todoist-api-typescript";
-import { Redis } from "@upstash/redis";
 import axios from "axios";
+import { storeLog } from "./redis";
 
 export const COMMAND_BATCH_SIZE = Number(process.env.COMMAND_BATCH_SIZE) || 50;
 console.log(`Using COMMAND_BATCH_SIZE=${COMMAND_BATCH_SIZE}`);
@@ -12,16 +12,42 @@ export type Command = {
     args: any;
 };
 
-export const sync = async (commands: Command[], token: string) => {
+export const sync = async (commands: Command[], token: string): Promise<void> => {
     try {
-        return await axios.post(
-            "https://api.todoist.com/api/v1/sync",
-            { commands },
-            { timeout: 60 * 1000, headers: { Authorization: `Bearer ${token}` } }
-        );
+        let tempIdMap: { [key: string]: string } = {};
+        for (let i = 0; i < commands.length; i += COMMAND_BATCH_SIZE) {
+            const commandBatch = commands.slice(i, i + COMMAND_BATCH_SIZE);
+            commandBatch.forEach((command) => {
+                const parentId = command.args.parent_id;
+                if (!parentId) return;
+
+                const mappedId = tempIdMap[command.args.parent_id];
+                if (!mappedId) return;
+
+                command.args.parent_id = mappedId;
+            });
+
+            const response = await axios.post(
+                "https://api.todoist.com/api/v1/sync",
+                { commands: commandBatch },
+                { timeout: 60 * 1000, headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (!response || response.status != 200) throw new Error("Failed to sync: " + response);
+
+            tempIdMap = { ...tempIdMap, ...response.data.temp_id_mapping };
+
+            Object.entries(response.data.sync_status)
+                .filter(([_, status]) => status !== "ok")
+                .forEach(([id, status]) => {
+                    const command = commandBatch.find((command) => command.uuid === id);
+                    storeLog(`
+Unexpected error while syncing command!
+Command: ${JSON.stringify(command)}
+Response: ${JSON.stringify(status)}`);
+                });
+        }
     } catch (error) {
-        console.error("Error while syncing: ", error);
-        return null;
+        storeLog("Error while syncing: " + error);
     }
 };
 
@@ -50,13 +76,4 @@ export const paginatedRequest = async <P, R, T extends PaginatedParameter & P>(
         arg.cursor = response.nextCursor;
     }
     return result;
-};
-
-const redis = Redis.fromEnv();
-
-export const persistentLog = async (message: string) => {
-    console.log(message);
-    const now = new Date();
-    const date = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")} ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}:${String(now.getMilliseconds()).padStart(3, "0")}`;
-    await redis.set(`${Date.now()}${Math.floor(Math.random() * 100000)}`, `${date}: ${message}`, { ex: 60 * 60 * 24 });
 };

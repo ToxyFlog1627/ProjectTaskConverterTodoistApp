@@ -2,11 +2,12 @@ import { Response } from "express";
 import { randomUUID } from "crypto";
 import { Choice, ChoiceSetInput, DoistCard, SubmitAction, ToggleInput } from "@doist/ui-extensions-core";
 import { PersonalProject, TodoistApi } from "@doist/todoist-api-typescript";
-import { Command, COMMAND_BATCH_SIZE, paginatedRequest, sync } from "./../api";
+import { Command, paginatedRequest, sync } from "./../api";
 import { RequestWithToken } from "./../middleware/token";
 import { successResponse, errorResponse } from "../response";
 import { createInfoCard } from "../card";
 import { waitUntil } from "@vercel/functions";
+import { storeLog } from "../redis";
 
 const NEW_TASK_PROJECT_ID_INPUT_ID = "Input.ProjectId";
 const GROUP_BY_SECTIONS_INPUT_ID = "Input.GroupBySections";
@@ -30,7 +31,9 @@ To see progress either perform a sync, or wait until it will be done automatical
 const createInputCard = (projects: PersonalProject[]): DoistCard => {
     const card = new DoistCard();
 
-    const inboxProject = projects.filter((project) => project.inboxProject)[0].id;
+    const inboxProject = projects.find((project) => project.inboxProject)?.id;
+    if (!inboxProject) throw new Error("Failed to find inbox project");
+
     const choices = [...projects.map(({ id, name }) => Choice.from({ title: name, value: id }))];
     card.addItem(
         ChoiceSetInput.from({
@@ -62,26 +65,6 @@ const createInputCard = (projects: PersonalProject[]): DoistCard => {
     );
 
     return card;
-};
-
-const incrementalSync = async (commands: Command[], token: string) => {
-    let tempIdMap: { [key: string]: string } = {};
-    for (let i = 0; i < commands.length; i += COMMAND_BATCH_SIZE) {
-        const commandBatch = commands.slice(i, i + COMMAND_BATCH_SIZE);
-        commandBatch.forEach((command) => {
-            const parentId = command.args.parent_id;
-            if (!parentId) return;
-
-            const mappedId = tempIdMap[command.args.parent_id];
-            if (!mappedId) return;
-
-            command.args.parent_id = mappedId;
-        });
-
-        const response = await sync(commandBatch, token);
-        if (!response) return;
-        tempIdMap = { ...tempIdMap, ...response.data.temp_id_mapping };
-    }
 };
 
 const convertProjectToTask = async (
@@ -151,7 +134,7 @@ const convertProjectToTask = async (
         );
     }
 
-    waitUntil(incrementalSync(commands, token));
+    waitUntil(sync(commands, token));
 };
 
 const toTask = async (request: RequestWithToken, response: Response) => {
@@ -183,7 +166,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
             response.sendStatus(404);
         }
     } catch (error) {
-        console.error("Unexpected error while converting project to task: ", error);
+        storeLog("Unexpected error while converting project to task: " + error);
         response.status(200).json(errorResponse("Unexpected error during conversion."));
     }
 };
