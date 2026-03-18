@@ -36,18 +36,20 @@ export const sync = async (commands: Command[], token: string): Promise<void> =>
 
             tempIdMap = { ...tempIdMap, ...response.data.temp_id_mapping };
 
-            Object.entries(response.data.sync_status)
-                .filter(([_, status]) => status !== "ok")
-                .forEach(([id, status]) => {
-                    const command = commandBatch.find((command) => command.uuid === id);
-                    storeLog(`
+            await Promise.all(
+                Object.entries(response.data.sync_status)
+                    .filter(([_, status]) => status !== "ok")
+                    .map(([id, status]) => {
+                        const command = commandBatch.find((command) => command.uuid === id);
+                        return storeLog(`
 Unexpected error while syncing command!
 Command: ${JSON.stringify(command)}
 Response: ${JSON.stringify(status)}`);
-                });
+                    })
+            );
         }
     } catch (error) {
-        storeLog("Error while syncing: " + error);
+        await storeLog("Error while syncing: " + JSON.stringify(error));
     }
 };
 

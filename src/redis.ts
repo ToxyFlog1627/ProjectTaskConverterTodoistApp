@@ -11,6 +11,6 @@ export const storeLog = async (message: string) => {
     if (redis === null) redis = Redis.fromEnv();
 
     const key = `logs:${new Date().toISOString().slice(0, 10)}`;
-    redis.rpush(key, message);
-    redis.expire(key, LOG_EXPIRATION_SECONDS, "NX");
+    await redis.rpush(key, message);
+    await redis.expire(key, LOG_EXPIRATION_SECONDS, "NX");
 };

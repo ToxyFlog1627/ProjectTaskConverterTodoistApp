@@ -12,8 +12,8 @@ const storeLog = async (message) => {
     if (redis === null)
         redis = redis_1.Redis.fromEnv();
     const key = `logs:${new Date().toISOString().slice(0, 10)}`;
-    redis.rpush(key, message);
-    redis.expire(key, LOG_EXPIRATION_SECONDS, "NX");
+    await redis.rpush(key, message);
+    await redis.expire(key, LOG_EXPIRATION_SECONDS, "NX");
 };
 exports.storeLog = storeLog;
 //# sourceMappingURL=redis.js.map

@@ -26,19 +26,19 @@ const sync = async (commands, token) => {
             if (!response || response.status != 200)
                 throw new Error("Failed to sync: " + response);
             tempIdMap = { ...tempIdMap, ...response.data.temp_id_mapping };
-            Object.entries(response.data.sync_status)
+            await Promise.all(Object.entries(response.data.sync_status)
                 .filter(([_, status]) => status !== "ok")
-                .forEach(([id, status]) => {
+                .map(([id, status]) => {
                 const command = commandBatch.find((command) => command.uuid === id);
-                (0, redis_1.storeLog)(`
+                return (0, redis_1.storeLog)(`
 Unexpected error while syncing command!
 Command: ${JSON.stringify(command)}
 Response: ${JSON.stringify(status)}`);
-            });
+            }));
         }
     }
     catch (error) {
-        (0, redis_1.storeLog)("Error while syncing: " + error);
+        await (0, redis_1.storeLog)("Error while syncing: " + JSON.stringify(error));
     }
 };
 exports.sync = sync;

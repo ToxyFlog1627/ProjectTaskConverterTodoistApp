@@ -177,7 +177,7 @@ const toProject = async (request, response) => {
         }
     }
     catch (error) {
-        (0, redis_1.storeLog)("Unexpected error while converting task to project: " + error);
+        await (0, redis_1.storeLog)("Unexpected error while converting task to project: " + JSON.stringify(error));
         response.status(200).json((0, response_1.errorResponse)("Unexpected error during conversion."));
     }
 };

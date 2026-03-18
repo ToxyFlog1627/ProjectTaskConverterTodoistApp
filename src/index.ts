@@ -4,11 +4,12 @@ import { tokenExtractor } from "./middleware/token";
 import toTask from "./commands/to_task";
 import toProject from "./commands/to_project";
 import { storeLog } from "./redis";
+import { waitUntil } from "@vercel/functions";
 import "dotenv/config";
 
 const PORT = process.env.PORT || 3000;
 
-process.on("uncaughtException", (err) => storeLog("Uncaught exception: " + err));
+process.on("uncaughtException", (error) => waitUntil(storeLog("Uncaught exception: " + JSON.stringify(error))));
 
 const app = express();
 

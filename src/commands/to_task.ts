@@ -166,7 +166,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
             response.sendStatus(404);
         }
     } catch (error) {
-        storeLog("Unexpected error while converting project to task: " + error);
+        await storeLog("Unexpected error while converting project to task: " + JSON.stringify(error));
         response.status(200).json(errorResponse("Unexpected error during conversion."));
     }
 };
