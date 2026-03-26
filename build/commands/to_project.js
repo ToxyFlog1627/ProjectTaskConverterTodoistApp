@@ -92,7 +92,7 @@ const createProjectCreationCard = (defaultProjectName, projects, options) => {
 };
 const convertTaskToProject = async (api, token, taskId, projectId, options) => {
     const task = await api.getTask(taskId);
-    const subtasks = await (0, api_1.paginatedRequest)(api, api.getTasks, { parentId: task.id });
+    const subtasks = await (0, api_1.paginatedRequest)(api, api.getTasks, { parentId: task.id, limit: 200 });
     const commands = [];
     if (options.createRedirect) {
         commands.push({
@@ -143,7 +143,7 @@ const toProject = async (request, response) => {
                 response.status(200).json({ card: createRetryInfoCard() });
                 return;
             }
-            const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, {}));
+            const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
@@ -153,7 +153,7 @@ const toProject = async (request, response) => {
             };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
             if (projectId === CREATE_NEW_PROJECT) {
-                const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, {}));
+                const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             }
             else {

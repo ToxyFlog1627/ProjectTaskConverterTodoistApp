@@ -142,7 +142,7 @@ const convertTaskToProject = async (
     options: Options
 ) => {
     const task = await api.getTask(taskId);
-    const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id });
+    const subtasks = await paginatedRequest(api, api.getTasks, { parentId: task.id, limit: 200 });
     const commands: Command[] = [];
 
     if (options.createRedirect) {
@@ -203,7 +203,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
                 return;
             }
 
-            const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
+            const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
             response.status(200).json({ card: createProjectSelectionCard(projects) });
         } else if (actionId === SELECT_PROJECT_ACTION_ID) {
             const options = {
@@ -213,7 +213,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
             const projectId = inputs[PROJECT_ID_INPUT_ID];
 
             if (projectId === CREATE_NEW_PROJECT) {
-                const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
+                const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             } else {
                 await convertTaskToProject(api, token, taskId, projectId, options);

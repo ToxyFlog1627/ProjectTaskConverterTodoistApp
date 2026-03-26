@@ -87,7 +87,7 @@ const convertProjectToTask = async (
         },
     });
 
-    const tasks = await paginatedRequest(api, api.getTasks, { projectId });
+    const tasks = await paginatedRequest(api, api.getTasks, { projectId, limit: 200 });
     const topLevelTasks = tasks.filter((task) => task.parentId === null);
     if (groupBySections) {
         const tasksWithoutSection = topLevelTasks.filter((task) => !task.sectionId);
@@ -99,10 +99,10 @@ const convertProjectToTask = async (
             }))
         );
 
-        const sections = await paginatedRequest(api, api.getSections, { projectId: projectId });
+        const sections = await paginatedRequest(api, api.getSections, { projectId: projectId, limit: 200 });
         await Promise.all(
             sections.map(async (section) => {
-                const sectionTasks = await paginatedRequest(api, api.getTasks, { sectionId: section.id });
+                const sectionTasks = await paginatedRequest(api, api.getTasks, { sectionId: section.id, limit: 200 });
                 const sectionTaskId = randomUUID();
 
                 commands.push({
@@ -152,7 +152,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
                 return;
             }
 
-            const projects = (await paginatedRequest(api, api.getProjects, {})) as PersonalProject[];
+            const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
             response.status(200).json({ card: createInputCard(projects) });
         } else if (actionId === CONVERT_ACTION_ID) {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
