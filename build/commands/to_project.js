@@ -145,6 +145,7 @@ const toProject = async (request, response) => {
             }
             const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
             response.status(200).json({ card: createProjectSelectionCard(projects) });
+            await (0, redis_1.storeLog)("toProject");
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
             const options = {

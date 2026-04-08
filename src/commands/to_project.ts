@@ -205,6 +205,8 @@ const toProject = async (request: RequestWithToken, response: Response) => {
 
             const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
             response.status(200).json({ card: createProjectSelectionCard(projects) });
+
+            await storeLog("toProject");
         } else if (actionId === SELECT_PROJECT_ACTION_ID) {
             const options = {
                 createRedirect: inputs[CREATE_REDIRECT_INPUT_ID] === "true",

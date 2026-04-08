@@ -154,6 +154,8 @@ const toTask = async (request: RequestWithToken, response: Response) => {
 
             const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
             response.status(200).json({ card: createInputCard(projects) });
+
+            await storeLog("toTask");
         } else if (actionId === CONVERT_ACTION_ID) {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
             const groupBySections = inputs[GROUP_BY_SECTIONS_INPUT_ID] === "true";

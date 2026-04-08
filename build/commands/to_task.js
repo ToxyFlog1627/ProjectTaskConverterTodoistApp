@@ -110,6 +110,7 @@ const toTask = async (request, response) => {
             }
             const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
             response.status(200).json({ card: createInputCard(projects) });
+            await (0, redis_1.storeLog)("toTask");
         }
         else if (actionId === CONVERT_ACTION_ID) {
             const newTaskProjectId = inputs[NEW_TASK_PROJECT_ID_INPUT_ID];
