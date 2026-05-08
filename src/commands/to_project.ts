@@ -205,7 +205,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
             }
 
             await storeLog(`Fetching projects`);
-            const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
+            const projects = (await api.getProjects({ limit: 200 })).results as PersonalProject[];
             response.status(200).json({ card: createProjectSelectionCard(projects) });
             await storeLog(`Fetched projects: #${projects.length}`);
 
@@ -219,7 +219,7 @@ const toProject = async (request: RequestWithToken, response: Response) => {
 
             await storeLog(`Selecting project`);
             if (projectId === CREATE_NEW_PROJECT) {
-                const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
+                const projects = (await api.getProjects({ limit: 200 })).results as PersonalProject[];
                 await storeLog(`Fetched projects for selection: #${projects.length}`);
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             } else {

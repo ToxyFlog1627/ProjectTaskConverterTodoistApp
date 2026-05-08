@@ -152,7 +152,7 @@ const toTask = async (request: RequestWithToken, response: Response) => {
                 return;
             }
 
-            const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
+            const projects = (await api.getProjects({ limit: 200 })).results as PersonalProject[];
             response.status(200).json({ card: createInputCard(projects) });
 
             await storeLog("toTask");

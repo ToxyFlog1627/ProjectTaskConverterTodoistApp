@@ -108,7 +108,8 @@ const toTask = async (request, response) => {
                 response.status(200).json({ card: createRetryInfoCard() });
                 return;
             }
-            const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
+            // const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
+            const projects = (await api.getProjects({ limit: 200 })).results;
             response.status(200).json({ card: createInputCard(projects) });
             await (0, redis_1.storeLog)("toTask");
         }

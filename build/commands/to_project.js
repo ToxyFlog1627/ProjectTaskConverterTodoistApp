@@ -145,7 +145,8 @@ const toProject = async (request, response) => {
                 return;
             }
             await (0, redis_1.storeLog)(`Fetching projects`);
-            const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
+            // const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
+            const projects = (await api.getProjects({ limit: 200 })).results;
             response.status(200).json({ card: createProjectSelectionCard(projects) });
             await (0, redis_1.storeLog)(`Fetched projects: #${projects.length}`);
             await (0, redis_1.storeLog)("toProject");
@@ -158,7 +159,8 @@ const toProject = async (request, response) => {
             const projectId = inputs[PROJECT_ID_INPUT_ID];
             await (0, redis_1.storeLog)(`Selecting project`);
             if (projectId === CREATE_NEW_PROJECT) {
-                const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
+                // const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
+                const projects = (await api.getProjects({ limit: 200 })).results;
                 await (0, redis_1.storeLog)(`Fetched projects for selection: #${projects.length}`);
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             }
