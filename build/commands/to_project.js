@@ -133,6 +133,7 @@ const convertTaskToProject = async (api, token, taskId, projectId, options) => {
 };
 const toProject = async (request, response) => {
     try {
+        await (0, redis_1.storeLog)(`Request: ${JSON.stringify(request.body)}`);
         const token = request.token;
         const api = new todoist_api_typescript_1.TodoistApi(token);
         const { actionType, actionId, params, inputs, data } = request.body.action;
@@ -143,8 +144,10 @@ const toProject = async (request, response) => {
                 response.status(200).json({ card: createRetryInfoCard() });
                 return;
             }
+            await (0, redis_1.storeLog)(`Fetching projects`);
             const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
             response.status(200).json({ card: createProjectSelectionCard(projects) });
+            await (0, redis_1.storeLog)(`Fetched projects: #${projects.length}`);
             await (0, redis_1.storeLog)("toProject");
         }
         else if (actionId === SELECT_PROJECT_ACTION_ID) {
@@ -153,21 +156,30 @@ const toProject = async (request, response) => {
                 moveDescription: inputs[MOVE_DESCRIPTION_INPUT_ID] === "true",
             };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
+            await (0, redis_1.storeLog)(`Selecting project`);
             if (projectId === CREATE_NEW_PROJECT) {
                 const projects = (await (0, api_1.paginatedRequest)(api, api.getProjects, { limit: 200 }));
+                await (0, redis_1.storeLog)(`Fetched projects for selection: #${projects.length}`);
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             }
             else {
+                await (0, redis_1.storeLog)(`Selected project: #${projectId}`);
+                await (0, redis_1.storeLog)(`Converting tasks`);
                 await convertTaskToProject(api, token, taskId, projectId, options);
+                await (0, redis_1.storeLog)(`Converted tasks`);
                 response.status(200).json({ card: createSyncInfoCard() });
             }
         }
         else if (actionId === CREATE_PROJECT_ACTION_ID) {
+            await (0, redis_1.storeLog)(`Creating new project`);
             const project = await api.addProject({
                 name: inputs[PROJECT_NAME_INPUT_ID],
                 parentId: inputs[PARENT_ID_INPUT_ID] === NO_PARENT_PROJECT ? null : inputs[PARENT_ID_INPUT_ID],
             });
+            await (0, redis_1.storeLog)(`Created new project: ${JSON.stringify(project)}`);
+            await (0, redis_1.storeLog)(`Converting tasks`);
             await convertTaskToProject(api, token, taskId, project.id, data.options);
+            await (0, redis_1.storeLog)(`Converted tasks`);
             response.status(200).json({ card: createSyncInfoCard() });
         }
         else if (actionId === CLOSE_ACTION_ID) {

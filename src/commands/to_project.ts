@@ -190,6 +190,7 @@ const convertTaskToProject = async (
 
 const toProject = async (request: RequestWithToken, response: Response) => {
     try {
+        await storeLog(`Request: ${JSON.stringify(request.body)}`);
         const token = request.token!;
         const api = new TodoistApi(token);
 
@@ -203,8 +204,10 @@ const toProject = async (request: RequestWithToken, response: Response) => {
                 return;
             }
 
+            await storeLog(`Fetching projects`);
             const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
             response.status(200).json({ card: createProjectSelectionCard(projects) });
+            await storeLog(`Fetched projects: #${projects.length}`);
 
             await storeLog("toProject");
         } else if (actionId === SELECT_PROJECT_ACTION_ID) {
@@ -214,20 +217,29 @@ const toProject = async (request: RequestWithToken, response: Response) => {
             };
             const projectId = inputs[PROJECT_ID_INPUT_ID];
 
+            await storeLog(`Selecting project`);
             if (projectId === CREATE_NEW_PROJECT) {
                 const projects = (await paginatedRequest(api, api.getProjects, { limit: 200 })) as PersonalProject[];
+                await storeLog(`Fetched projects for selection: #${projects.length}`);
                 response.status(200).json({ card: createProjectCreationCard(taskTitle, projects, options) });
             } else {
+                await storeLog(`Selected project: #${projectId}`);
+                await storeLog(`Converting tasks`);
                 await convertTaskToProject(api, token, taskId, projectId, options);
+                await storeLog(`Converted tasks`);
                 response.status(200).json({ card: createSyncInfoCard() });
             }
         } else if (actionId === CREATE_PROJECT_ACTION_ID) {
+            await storeLog(`Creating new project`);
             const project = await api.addProject({
                 name: inputs[PROJECT_NAME_INPUT_ID],
                 parentId: inputs[PARENT_ID_INPUT_ID] === NO_PARENT_PROJECT ? null : inputs[PARENT_ID_INPUT_ID],
             });
+            await storeLog(`Created new project: ${JSON.stringify(project)}`);
 
+            await storeLog(`Converting tasks`);
             await convertTaskToProject(api, token, taskId, project.id, data.options);
+            await storeLog(`Converted tasks`);
             response.status(200).json({ card: createSyncInfoCard() });
         } else if (actionId === CLOSE_ACTION_ID) {
             response.status(200).json(successResponse());
